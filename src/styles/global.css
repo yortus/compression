@@ -1,0 +1,62 @@
+:root {
+  --bg: #0a0a0f;
+  --bg-surface: #14141f;
+  --bg-elevated: #1e1e2e;
+  --text: #e0e0e8;
+  --text-secondary: #8888a0;
+  --accent: #6c8cff;
+  --accent-dim: #4a5a8f;
+  --border: #2a2a3a;
+  --positive: #4ade80;
+  --warning: #fbbf24;
+  --negative: #f87171;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 28px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}
