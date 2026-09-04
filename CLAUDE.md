@@ -50,9 +50,21 @@ holds the inputs (`sourceImageData`, `quality`, `subsamplingMode`, `selectedBloc
 `shallowRef` `PipelineCache` of every intermediate stage, and `computed`s that expose them.
 There is no other state store.
 
-**`src/components/steps/StepN*.vue` — one component per slide.** Each injects the pipeline, reads
-the intermediate it needs, and draws it. `App.vue` holds the ordered `steps` array (component +
-title) that drives both rendering and the `ProgressBar`; arrow keys / `?` / `Esc` are bound there.
+**`src/deck/` — the deck framework.** `slides.ts` is the single source of deck order: an array of
+`{ id, act, title, component, tag, controls, fragments }`, 34 slides across 7 acts. `useDeck.ts`
+owns the current slide and fragment and syncs them to the URL hash (`#/zigzag`, `#/zigzag/1`);
+`DeckShell.vue` renders all the persistent chrome (ToC rail, title bar, stats HUD, control bar,
+loupe) and binds the keys. Slide components live in `src/components/slides/`; the older
+`src/components/steps/StepN*.vue` are the original JPEG walkthrough, still in use and reached
+through the same registry.
+
+**`src/stats/` — the always-on ratio.** A slide calls `useStat(id, () => StatSample)` in setup and
+its numbers appear in the HUD; `StatSample` keeps `overheadBits` separate from `encodedBits` so the
+shared-primer cost is visible. The registry also keeps a per-slide scoreboard, which `jpeg-pipeline`
+reads back.
+
+**`src/content/` — the words.** Per-slide prose in two registers (`speaker`, `learner`), keyed by
+slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
 
 ### Things worth knowing before editing
 
@@ -70,19 +82,30 @@ title) that drives both rendering and the `ProgressBar`; arrow keys / `?` / `Esc
 - **The −128 level shift lives inside `forwardDCT`/`inverseDCT`**, not in the colorspace stage.
   Y/Cb/Cr stay in 0–255 through subsampling and block splitting.
 - **Huffman is per-block and illustrative.** `encodeBlock` builds a fresh tree from one block's RLE
-  pairs, and Step 9's compressed-size figure extrapolates that block's `totalBits` across all
-  blocks. There is no real bitstream, no DC differential coding, and no standard entropy tables —
-  that's deliberate; it demos the idea in numbers the audience can follow.
+  pairs. There is no real bitstream, no DC differential coding, and no standard entropy tables —
+  that's deliberate; it demos the idea in numbers the audience can follow. `engine/codecs/huffman.ts`
+  is the general version, over an arbitrary symbol type, used by the Act 3 tree-building slide.
+- **`estimateEncodedBits` is the one whole-image size figure**, shared by `why-care`, `jpeg-result`,
+  `jpeg-pipeline` and the benchmark so they cannot disagree. It samples blocks via
+  `sampleBlockIndices`, a golden-ratio sequence — *not* a fixed stride. Every sample image is 512px
+  wide, so a channel is exactly 64 blocks across and a stride of `n / 64` silently measures one
+  column of the image. That bug made line art report the same ratio at every quality setting.
+- **`engine/jpeg/stages.ts` prices the whole chain stage by stage** for the finale slide, and
+  `compareScanOrders` there backs the zigzag comparison. Note what it found: reordering does *not*
+  change the RLE pair count, and the DCT *reduces* order-0 entropy rather than increasing it.
 - **Rendering is plain 2D canvas** (`getContext('2d')` + `putImageData`) inside each step, with a
   `watch` + `onMounted` redraw pair. `src/rendering/PixiCanvas.vue` and the `pixi.js` dependency
   are currently unused; `gsap` is used only by `Step6Zigzag.vue`.
 
 ### Adding or reordering a slide
 
-Create `src/components/steps/StepN*.vue`, wrap the content in `StepShell` (props `title`/`subtitle`,
-default slot for content plus an optional `detail` slot that renders as a floating side note), and
-add it to the `steps` array in `App.vue` — that array is the deck order and the progress-bar labels.
-`ExpandablePanel.vue` is the convention for "click to reveal the maths/details" asides.
+Create `src/components/slides/*.vue`, wrap the content in `SlideLayout` (optional `column` prop, and
+a `notes` slot that renders as a floating side note), wrap anything held back for the build in
+`<Fragment :index="n">`, and add an entry to `SLIDES` in `src/deck/slides.ts` — that array is the
+deck order, the ToC and the deep links. Declare which global controls the slide uses
+(`controls: ['image', 'quality']`) and how many `fragments` it has. Publish numbers with `useStat`,
+and put the prose in `src/content/`. `ExpandablePanel.vue` is the convention for "click to reveal
+the maths/details" asides.
 
 ### Presentation styling
 

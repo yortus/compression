@@ -107,6 +107,29 @@ export function reconstruct(
 }
 
 /**
+ * Which blocks to sample when measuring the whole image.
+ *
+ * A fixed stride is the obvious thing and it is wrong here. Every sample in the deck is
+ * 512px wide, so a channel has exactly 64 blocks per row — and a stride of `n / 64` then
+ * lands on the same column of every row, measuring the left edge of the image and
+ * calling it the average. Line art scored an identical 512:1 at every quality setting
+ * because its left edge is blank at every quality setting.
+ *
+ * The golden-ratio sequence has no such period to collide with, is deterministic (so the
+ * number does not flicker between renders), and spreads evenly over any n.
+ */
+const GOLDEN = 0.6180339887498949
+
+export function sampleBlockIndices(n: number, count: number): number[] {
+  if (n <= count) return Array.from({ length: n }, (_, i) => i)
+  const seen = new Set<number>()
+  for (let k = 0; k < count; k++) {
+    seen.add(Math.floor(((k * GOLDEN) % 1) * n))
+  }
+  return [...seen]
+}
+
+/**
  * Estimated size of the whole encoded image, in bits.
  *
  * Huffman-codes a spread of blocks and scales up rather than extrapolating from a single
@@ -119,14 +142,10 @@ export function estimateEncodedBits(cache: PipelineCache, sampleCount = 64): num
   for (const channel of [cache.quantizedBlocks.y, cache.quantizedBlocks.cb, cache.quantizedBlocks.cr]) {
     const n = channel.blocks.length
     if (n === 0) continue
-    const step = Math.max(1, Math.floor(n / sampleCount))
+    const indices = sampleBlockIndices(n, sampleCount)
     let bits = 0
-    let sampled = 0
-    for (let i = 0; i < n; i += step) {
-      bits += getBlockHuffman(channel.blocks[i]).totalBits
-      sampled++
-    }
-    total += (bits / sampled) * n
+    for (const i of indices) bits += getBlockHuffman(channel.blocks[i]).totalBits
+    total += (bits / indices.length) * n
   }
   return Math.round(total)
 }

@@ -1,0 +1,114 @@
+import type { ProseRegistry } from './types'
+
+/**
+ * Acts 3, 4 and 5 — entropy coding, the transform, and the assembled codec.
+ *
+ * These three acts run together as one argument, so their words live in one file: the
+ * entropy coder is introduced needing runs it does not have, the transform is what
+ * manufactures them, and the JPEG act is where the bill is added up.
+ */
+export const ACT345_PROSE: ProseRegistry = {
+  'huffman-build': {
+    speaker: 'Take the two rarest, glue them together, repeat. That is the whole algorithm.',
+    learner:
+      'Huffman coding gives common symbols short codes and rare ones long codes, and the way it ' +
+      'decides is almost insultingly simple: repeatedly take the two least frequent items and ' +
+      'combine them into one. Step through the merges and watch the tree assemble itself from the ' +
+      'bottom. Every left branch is a 0 and every right branch a 1, so reading down from the root ' +
+      'to a leaf spells out that symbol’s code — and because symbols only ever sit at leaves, ' +
+      'no code is a prefix of another and the decoder never needs a separator. The catch is at the ' +
+      'bottom of the slide: the decoder cannot use any of it without the code table, and on a short ' +
+      'message that table costs more than the message.',
+  },
+  'huffman-codes': {
+    speaker: 'The same coder on real JPEG symbols. Short codes for EOB and small values.',
+    learner:
+      'Here is that coder pointed at one block of the image: the symbols are the (run, value) pairs ' +
+      'from the run-length step, and the frequent ones — end-of-block, small coefficients — collect ' +
+      'the shortest codes. This is the last step of JPEG, and it is entirely lossless. Everything ' +
+      'that was going to be thrown away has already gone.',
+  },
+  'waves-intro': {
+    speaker: 'Any signal is a sum of fixed cosines. Drag the slider, watch it assemble.',
+    learner:
+      'Before any of this is about compression: any list of numbers at all can be written as a sum ' +
+      'of fixed cosine waves, from a flat line through to the fastest wiggle the samples can ' +
+      'represent. The waves never change — only how much of each one you need. Drag on the signal ' +
+      'to draw your own and watch how many waves it takes to reproduce. Smooth signals need very ' +
+      'few; a sharp edge or a single spike needs nearly all of them, because a corner is built out ' +
+      'of every frequency at once.',
+  },
+  'dct-1d': {
+    speaker: 'Same decomposition, now with a price. Two knobs: how many, and how precisely.',
+    learner:
+      'Now put a cost on it. There are two separate lossy decisions in a transform codec and this ' +
+      'slide has one knob for each: how many coefficients you keep, and how precisely you store the ' +
+      'ones you keep. Dropping the tail is nearly free when the tail is small — which is a fact ' +
+      'about real data, not about the transform. Try it on the spike preset, where every ' +
+      'coefficient is the same size and there is nothing safe to drop. The transform here is ' +
+      'DCT-II, exactly the one JPEG uses; JPEG just runs it in two dimensions.',
+  },
+  'basis-64': {
+    speaker: 'The 64 patterns. Click them in and out; watch the block appear.',
+    learner:
+      'In two dimensions the basis is 64 little patterns, and every 8×8 block in every image is ' +
+      'some weighted sum of them. Build one up in zigzag order and the block is recognisable long ' +
+      'before the patterns run out — the rest are correcting detail nobody looks for. The bar under ' +
+      'each pattern shows how much of it this particular block contains, and it is nearly all in the ' +
+      'top-left corner. Note what happens to the numbers if you pick patterns individually instead ' +
+      'of keeping a prefix: an arbitrary selection needs a 64-bit map explaining which ones you sent, ' +
+      'while "the first twelve" needs a single small count. That is why JPEG drops the tail rather ' +
+      'than cherry-picking.',
+  },
+  'quantisation': {
+    speaker: 'Divide and round. This is the only place image quality is actually spent.',
+    learner:
+      'Quantisation divides each coefficient by a number from a table and rounds. The table has ' +
+      'bigger divisors for the higher frequencies, because that is where the eye notices least, so ' +
+      'most high-frequency coefficients round straight to zero. This is the step where the loss in ' +
+      '"lossy" happens — and the step that creates the long runs of zeros the rest of the pipeline ' +
+      'is about to exploit.',
+  },
+  'rle-on-coeffs': {
+    speaker: 'RLE again — but this time the runs were manufactured, not hoped for.',
+    learner:
+      'Run-length encoding is back, and this is the callback: in Act 1 it failed on a photograph ' +
+      'because neighbouring bytes were almost never identical. Nothing about RLE has improved. What ' +
+      'changed is that quantisation has driven most of the coefficients to exactly zero, so the runs ' +
+      'RLE needs are now guaranteed to be there. JPEG does not rely on a property of the data — it ' +
+      'manufactures it.',
+  },
+  'zigzag': {
+    speaker: 'Toggle the scan order. Same pair count — watch the gaps, not the pairs.',
+    learner:
+      'The surviving coefficients are all in one corner of the block, but a run-length coder can ' +
+      'only see the order you hand it. The count of pairs is the same either way — one per ' +
+      'surviving coefficient, plus an end-of-block marker — and that is worth noticing, because ' +
+      'it is not where the saving comes from. What changes is the gaps between them. Read row by ' +
+      'row and consecutive coefficients are separated by whatever the row stride leaves: fives, ' +
+      'sixes, thirteens, each a separate symbol to describe. Read along the diagonals and they sit ' +
+      'next to each other, so nearly every gap is zero and the alphabet collapses onto one very ' +
+      'common symbol. Nothing is computed and nothing is discarded: the saving comes entirely from ' +
+      'visiting the same 64 numbers in a different order.',
+  },
+  'jpeg-pipeline': {
+    speaker: 'Every stage, priced on this image. Two of them go the wrong way — on purpose.',
+    learner:
+      'The whole chain, measured on whatever image is loaded. Each row is priced the same way — what ' +
+      'an order-0 entropy coder would need for the representation at that point — so consecutive ' +
+      'rows are comparable, and the last row is the real per-block Huffman figure the rest of the ' +
+      'deck reports. The row worth stopping on is the DCT. It discards nothing at all, and the file ' +
+      'still shrinks sharply — because a coder with no memory does far better on decorrelated ' +
+      'coefficients than on neighbouring pixels. That is what transform coding is for, and it is ' +
+      'what makes every row below it possible: quantisation only works because the transform sorted ' +
+      'the numbers by how much they matter first. No single stage here is the compressor.',
+  },
+  'jpeg-result': {
+    speaker: 'The A/B. Drag quality down until it hurts, and say where it hurts first.',
+    learner:
+      'The finished article: original against reconstruction, at whatever quality you choose. Drag ' +
+      'the quality down and the artifacts arrive in a specific order — blockiness at the 8×8 ' +
+      'boundaries, ringing along sharp edges, and colour smearing before luminance goes. That order ' +
+      'is not accidental; it is the pipeline’s priorities showing through.',
+  },
+}

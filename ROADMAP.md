@@ -59,7 +59,10 @@ These exist to settle recurring decisions without re-litigating them:
   compare; if it labels a result lossy, diff the reconstruction against the original. Two slides
   originally hardcoded `lossy: true` for JPEG, which is true of the format but not necessarily of a
   given run of it — the badge now reports what actually happened, and the note carries the max
-  channel error.
+  channel error. This has since caught three more claims that were simply false — the zigzag
+  producing fewer pairs, the DCT costing bits, and a whole-image estimate that was measuring one
+  column of the image (all in P4/P5 below). Prefer generating a slide's verdict text *from* its
+  numbers, so a wrong expectation shows up as odd prose rather than as a confident lie.
 - **Report the spread, not just the best case.** A technique's numbers on one image say little; the
   interesting fact is usually how far they move across the three samples. Where a slide can show
   that range cheaply, it should.
@@ -356,14 +359,55 @@ Two things worth knowing for later phases:
 
 *Not yet done from P3's spirit:* the timed dry run itself, which is the user's to do.
 
-### P4 — Depth in Acts 3 and 4
+### P4 — Depth in Acts 3 and 4 ✅ done
 Interactive Huffman tree build; `waves-intro` and `dct-1d`; the animated 64 basis images; the
 raster-vs-zigzag run-length comparison that makes the zigzag insight land.
 **Done when:** each of those four has a knob the audience can turn and a stat that responds to it.
 
-### P5 — Act 5 finale
+*Delivered:* five slides, 34 in total. `huffman-build` steps or replays the merges over editable
+text and decodes its own bitstream back before reporting; `waves-intro` and `dct-1d` share a
+drawable `SignalPad` over a new general 1-D DCT-II in `engine/signal.ts`; `basis-64` builds a real
+block back up from the 64 patterns, by slider, by replay, or by clicking patterns individually; and
+`zigzag` compares the two scan orders side by side. Two new engine modules came with them —
+`engine/codecs/huffman.ts` (Huffman over an arbitrary symbol type, with the merge sequence recorded
+for the animation) and `engine/signal.ts` — both covered by the round-trip suite, now 56 cases.
+
+**Two things the measurements contradicted, which is the whole reason for measuring them:**
+
+- **The zigzag does not produce fewer RLE pairs.** It cannot: a pair is emitted per surviving
+  coefficient plus an end-of-block marker, and reordering does not change how many survive. The
+  first version of the slide claimed it did and dutifully rendered "0% saving". What the reorder
+  changes is the *gaps* between the survivors — scattered fives and sixes in row order, almost all
+  zeros along the diagonal — which collapses the symbol alphabet the entropy coder has to describe.
+  Measured on the whole image that is worth about **9%**, and the slide now shows the gap lists,
+  says the pair counts are identical, and prices the saving where it actually lives.
+- **`estimateEncodedBits` was sampling one column of the image.** It used a fixed stride of
+  `n / 64` blocks; every sample in the deck is 512px wide, so a channel is exactly 64 blocks across
+  and that stride landed on the same column of every row. Line art scored an identical 512:1 at
+  Q15, Q50 and Q92 because its left edge is blank at every quality. Replaced with a golden-ratio
+  sequence (`sampleBlockIndices`), which has no period to collide with a row width. This moved every
+  headline JPEG figure in the deck — Photo at Q50 went from 73:1 to 82:1 — and is the reason the
+  `brittle-vs-robust` chart's JPEG row is now believable.
+
+### P5 — Act 5 finale ✅ done
 The end-to-end pipeline slide driven by the scoreboard, stacking each technique's contribution.
 **Done when:** the finale's total agrees with the numbers the individual acts showed.
+
+*Delivered:* `jpeg-pipeline`, eight rows from raw RGB to the final bitstream, measured live on
+whichever image is loaded (`engine/jpeg/stages.ts`). Every intermediate row is priced identically —
+the size an order-0 entropy coder would reach on that representation — so consecutive rows are
+comparable; the first row is the literal 24 bits a pixel the rest of the deck quotes, and the last
+is the same `estimateEncodedBits` `jpeg-result` reports. Verified across Photo, Line art, Gradient
+and Pixel art at Q15/Q50/Q92: **the finale's ratio matches `jpeg-result`'s exactly in all twelve
+combinations.** Where the Act 1 slides have been visited, their scores on the same image are picked
+up from the scoreboard and shown underneath.
+
+**A third contradicted expectation.** The slide was written asserting that the DCT row would *cost*
+bits — a rotation cannot destroy information, so spelling out a wider range of numbers ought to be
+more expensive. Measured, it is the second-largest saving on the board (−63% on a photo). Order-0
+entropy is not preserved by a rotation: decorrelating the samples is precisely what makes a
+memoryless coder do better, and that is the entire reason transform coding exists. The commentary
+under the table is now generated from the measured deltas rather than written in advance.
 
 ### P6 — Publish and polish
 Learn mode as the off-presentation default, `base` config and static deploy, share metadata,

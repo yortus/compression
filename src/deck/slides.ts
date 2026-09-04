@@ -24,6 +24,12 @@ import WhyCare from '../components/slides/WhyCare.vue'
 import InfoTheory from '../components/slides/InfoTheory.vue'
 import Timeline from '../components/slides/Timeline.vue'
 import Optimisation from '../components/slides/Optimisation.vue'
+import HuffmanBuild from '../components/slides/HuffmanBuild.vue'
+import WavesIntro from '../components/slides/WavesIntro.vue'
+import Dct1D from '../components/slides/Dct1D.vue'
+import Basis64 from '../components/slides/Basis64.vue'
+import JpegPipeline from '../components/slides/JpegPipeline.vue'
+
 import BrittleVsRobust from '../components/slides/BrittleVsRobust.vue'
 import Reframing from '../components/slides/Reframing.vue'
 import PointsSlide from '../components/slides/PointsSlide.vue'
@@ -185,6 +191,15 @@ export const SLIDES: SlideDef[] = [
     controls: ['image', 'subsampling'],
   },
   {
+    id: 'huffman-build',
+    act: 'entropy',
+    title: 'Building the Tree',
+    subtitle: 'Take the two rarest things and glue them together',
+    component: HuffmanBuild,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
     id: 'huffman-codes',
     act: 'entropy',
     title: 'Huffman Coding',
@@ -192,6 +207,24 @@ export const SLIDES: SlideDef[] = [
     component: Step8Huffman,
     tag: 'core',
     controls: ['image', 'quality', 'block'],
+  },
+  {
+    id: 'waves-intro',
+    act: 'fourier',
+    title: 'Everything Is Waves',
+    subtitle: 'Any signal is a sum of fixed cosines',
+    component: WavesIntro,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'dct-1d',
+    act: 'fourier',
+    title: 'One Dimension First',
+    subtitle: 'Keep the coefficients that matter',
+    component: Dct1D,
+    tag: 'core',
+    fragments: 2,
   },
   {
     id: 'blocks',
@@ -210,6 +243,16 @@ export const SLIDES: SlideDef[] = [
     component: Step4DCT,
     tag: 'core',
     controls: ['image', 'quality', 'block'],
+  },
+  {
+    id: 'basis-64',
+    act: 'fourier',
+    title: 'The 64 Patterns',
+    subtitle: 'Adding a block back together, one at a time',
+    component: Basis64,
+    tag: 'core',
+    controls: ['image', 'block'],
+    fragments: 2,
   },
   {
     id: 'quantisation',
@@ -233,10 +276,21 @@ export const SLIDES: SlideDef[] = [
     id: 'zigzag',
     act: 'fourier',
     title: 'Zigzag Scan',
-    subtitle: 'Reordering for longer runs',
+    subtitle: 'Same numbers, read in a different order',
     component: Step6Zigzag,
     tag: 'core',
     controls: ['image', 'quality', 'block'],
+    fragments: 2,
+  },
+  {
+    id: 'jpeg-pipeline',
+    act: 'jpeg',
+    title: 'The Whole Chain',
+    subtitle: 'Every stage, priced',
+    component: JpegPipeline,
+    tag: 'core',
+    controls: ['image', 'quality', 'subsampling'],
+    fragments: 2,
   },
   {
     id: 'jpeg-result',

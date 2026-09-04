@@ -7,6 +7,11 @@ import { palettise, paletteToImageData, indexBits } from './palette'
 import { splitPlanes, joinPlanes, interleavedBytes, planeToImageData } from './planes'
 import { roundTrips } from './types'
 import { compareImages } from '../compare'
+import { buildHuffman, countSymbols, encodeSymbols, decodeBits, payloadBits } from './huffman'
+import {
+  SIGNAL_PRESETS, SIGNAL_LENGTH, dct1d, idct1d, partialReconstruct, rmse, energyRank,
+} from '../signal'
+import { sampleBlockIndices } from '../jpeg/pipeline'
 
 /**
  * These tests exist for one reason: the deck stands in front of a room and claims every
@@ -231,5 +236,117 @@ describe('image comparison', () => {
 
   it('treats differently sized images as different', () => {
     expect(compareImages(imageOf(PIXELS, 2), imageOf(PIXELS.slice(0, 2), 2)).identical).toBe(false)
+  })
+})
+
+describe('huffman over arbitrary symbols', () => {
+  const MESSAGES = [
+    'aaaaaaaaaaaaaaaabbbbbbbbccccddee',
+    'the sooner the better',
+    'abcdefghabcdefgh',
+    'x',
+    'zzzzzzzz',
+  ]
+
+  it.each(MESSAGES)('decodes its own bitstream back exactly: %s', text => {
+    const symbols = [...text]
+    const build = buildHuffman(countSymbols(symbols))
+    const bits = encodeSymbols(symbols, build.codes)
+    expect(decodeBits(build.tree!, bits).join('')).toBe(text)
+  })
+
+  it('is a prefix code — no code starts with another', () => {
+    const build = buildHuffman(countSymbols([...'the sooner the better']))
+    const codes = [...build.codes.values()]
+    for (const a of codes) {
+      for (const b of codes) {
+        if (a !== b) expect(b.startsWith(a)).toBe(false)
+      }
+    }
+  })
+
+  it('gives the more frequent symbol a code no longer than the rarer one', () => {
+    const build = buildHuffman(countSymbols([...'aaaaaaaaaaaaaaaabbbbbbbbccccddee']))
+    expect(build.codes.get('a')!.length).toBeLessThanOrEqual(build.codes.get('e')!.length)
+  })
+
+  it('counts payload bits without building the bitstring', () => {
+    const symbols = [...'aaaaaaaaaaaaaaaabbbbbbbbccccddee']
+    const counts = countSymbols(symbols)
+    const build = buildHuffman(counts)
+    expect(payloadBits(counts, build.codes)).toBe(encodeSymbols(symbols, build.codes).length)
+  })
+
+  it('records one merge per symbol beyond the first', () => {
+    const build = buildHuffman(countSymbols([...'abcdefghabcdefgh']))
+    expect(build.steps.length).toBe(build.leaves.length - 1)
+    // The last step leaves exactly one tree on the table.
+    expect(build.steps[build.steps.length - 1].pool.length).toBe(1)
+  })
+
+  it('handles a single distinct symbol without producing an empty code', () => {
+    const build = buildHuffman(countSymbols([...'zzzz']))
+    expect(build.codes.get('z')).toBe('0')
+  })
+})
+
+describe('1-D cosine transform', () => {
+  const SIGNALS = SIGNAL_PRESETS.map(p => p.samples)
+
+  it.each(SIGNAL_PRESETS.map(p => p.name))('inverts exactly for the %s preset', name => {
+    const x = SIGNAL_PRESETS.find(p => p.name === name)!.samples
+    const back = idct1d(dct1d(x))
+    for (let i = 0; i < x.length; i++) expect(back[i]).toBeCloseTo(x[i], 10)
+  })
+
+  it('conserves energy — the transform is a rotation, not a reduction', () => {
+    for (const x of SIGNALS) {
+      const energy = (v: readonly number[]) => v.reduce((s, n) => s + n * n, 0)
+      expect(energy(dct1d(x))).toBeCloseTo(energy(x), 8)
+    }
+  })
+
+  it('puts a constant signal entirely in the first coefficient', () => {
+    const flat = new Array<number>(SIGNAL_LENGTH).fill(0.5)
+    const coeffs = dct1d(flat)
+    expect(Math.abs(coeffs[0])).toBeGreaterThan(1)
+    for (let k = 1; k < coeffs.length; k++) expect(coeffs[k]).toBeCloseTo(0, 10)
+  })
+
+  it('keeping every coefficient reconstructs exactly', () => {
+    for (const x of SIGNALS) {
+      expect(rmse(x, partialReconstruct(dct1d(x), SIGNAL_LENGTH))).toBeCloseTo(0, 10)
+    }
+  })
+
+  it('needs far fewer coefficients for a smooth signal than for noise', () => {
+    const smooth = SIGNAL_PRESETS.find(p => p.name === 'Smooth')!.samples
+    const noise = SIGNAL_PRESETS.find(p => p.name === 'Noise')!.samples
+    expect(energyRank(dct1d(smooth), 0.99)).toBeLessThan(energyRank(dct1d(noise), 0.99))
+  })
+})
+
+describe('whole-image block sampling', () => {
+  // The samples are all 512px wide, so a channel is 64 blocks across. A fixed stride of
+  // n/64 lands on the same column of every row and measures the left edge of the image.
+  const BLOCKS_PER_ROW = 64
+
+  it('does not land on a single column of a 64-wide block grid', () => {
+    const columns = new Set(sampleBlockIndices(4096, 64).map(i => i % BLOCKS_PER_ROW))
+    expect(columns.size).toBeGreaterThan(20)
+  })
+
+  it('spreads over the whole image, not just the start', () => {
+    const idx = sampleBlockIndices(4096, 64)
+    expect(Math.min(...idx)).toBeLessThan(200)
+    expect(Math.max(...idx)).toBeGreaterThan(3800)
+  })
+
+  it('is deterministic, so the reported size does not flicker', () => {
+    expect(sampleBlockIndices(4096, 64)).toEqual(sampleBlockIndices(4096, 64))
+  })
+
+  it('returns every block when there are fewer than asked for', () => {
+    expect(sampleBlockIndices(9, 64)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
   })
 })

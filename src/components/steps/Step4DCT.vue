@@ -1,26 +1,41 @@
 <script setup lang="ts">
-import { inject, ref, watch, onMounted } from 'vue'
+import { inject, ref, computed, watch, onMounted } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { basisFunction, partialInverseDCT } from '../../engine/jpeg/dct'
 import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
 
+/**
+ * The transform itself: 64 pixel values in, 64 coefficients out, nothing lost and
+ * nothing yet gained. The build-up from individual patterns is the next slide's job.
+ */
 const pipeline = inject(PIPELINE_KEY)!
 
 const spatialCanvas = ref<HTMLCanvasElement>()
 const freqCanvas = ref<HTMLCanvasElement>()
-const basisCanvas = ref<HTMLCanvasElement>()
 
-const showBasis = ref(false)
-const buildCount = ref(64)
+/**
+ * Share of the block's energy sitting in the first eight coefficients — the number that
+ * makes the DCT worth doing, and it is a fact about the image, not about the transform.
+ */
+const compaction = computed(() => {
+  const dct = pipeline.selectedDCT.value
+  if (!dct) return 0
+  let head = 0
+  let total = 0
+  for (let i = 0; i < 64; i++) {
+    const [r, c] = ZIGZAG_ORDER[i]
+    const e = dct[r][c] ** 2
+    total += e
+    if (i < 8) head += e
+  }
+  return total > 0 ? head / total : 0
+})
 
 function drawSpatial() {
-  const dct = pipeline.selectedDCT.value
+  const block = pipeline.selectedBlock.value
   const canvas = spatialCanvas.value
-  if (!dct || !canvas) return
-
-  const recon = partialInverseDCT(dct, buildCount.value)
+  if (!block || !canvas) return
 
   const size = 320
   canvas.width = size
@@ -30,7 +45,7 @@ function drawSpatial() {
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
-      const v = Math.max(0, Math.min(255, Math.round(recon[r][c])))
+      const v = Math.max(0, Math.min(255, Math.round(block[r][c])))
       ctx.fillStyle = `rgb(${v},${v},${v})`
       ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize)
     }
@@ -72,47 +87,14 @@ function drawFreq() {
       ctx.fillText(Math.round(val).toString(), c * cellSize + cellSize / 2, r * cellSize + cellSize / 2)
     }
   }
-
-  // Dim coefficients beyond buildCount
-  for (let i = buildCount.value; i < 64; i++) {
-    const [r, c] = ZIGZAG_ORDER[i]
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
-    ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize)
-  }
-}
-
-function drawBasis() {
-  const canvas = basisCanvas.value
-  if (!canvas) return
-  const total = 320
-  canvas.width = total
-  canvas.height = total
-  const ctx = canvas.getContext('2d')!
-  const cell = total / 8
-
-  for (let u = 0; u < 8; u++) {
-    for (let v = 0; v < 8; v++) {
-      const bf = basisFunction(u, v)
-      for (let x = 0; x < 8; x++) {
-        for (let y = 0; y < 8; y++) {
-          const val = Math.max(0, Math.min(255, Math.round(bf[x][y])))
-          ctx.fillStyle = `rgb(${val},${val},${val})`
-          const px = v * cell + y * (cell / 8)
-          const py = u * cell + x * (cell / 8)
-          ctx.fillRect(px, py, cell / 8 + 0.5, cell / 8 + 0.5)
-        }
-      }
-    }
-  }
 }
 
 function drawAll() {
   drawSpatial()
   drawFreq()
-  if (showBasis.value) drawBasis()
 }
 
-watch([() => pipeline.selectedBlock.value, () => pipeline.selectedDCT.value, showBasis, buildCount], drawAll)
+watch([() => pipeline.selectedBlock.value, () => pipeline.selectedDCT.value], drawAll)
 onMounted(drawAll)
 </script>
 
@@ -120,32 +102,23 @@ onMounted(drawAll)
   <SlideLayout>
     <div class="dct-step">
       <div class="panel">
-        <h3>Reconstruction ({{ buildCount }}/64 coefficients)</h3>
+        <h3>8×8 pixels</h3>
         <canvas ref="spatialCanvas" />
       </div>
-      <div class="arrow">←</div>
+      <div class="arrow">→</div>
       <div class="panel">
-        <h3>Frequency (DCT coefficients)</h3>
+        <h3>64 DCT coefficients</h3>
         <canvas ref="freqCanvas" />
+        <p class="compaction">
+          <strong>{{ (compaction * 100).toFixed(0) }}%</strong> of this block's energy is in the
+          first 8 coefficients
+        </p>
       </div>
-      <div v-if="showBasis" class="panel">
-        <h3>Basis functions</h3>
-        <canvas ref="basisCanvas" />
-      </div>
-    </div>
-    <div class="toolbar">
-      <label class="build-slider">
-        Coefficients: {{ buildCount }}/64
-        <input type="range" min="0" max="64" v-model.number="buildCount" />
-      </label>
-      <button :class="{ active: showBasis }" @click="showBasis = !showBasis">
-        {{ showBasis ? 'Hide' : 'Show' }} Basis Functions
-      </button>
     </div>
     <template #notes>
       <ExpandablePanel label="How it works">
         <p>The DCT transforms an 8×8 block of pixel values into 8×8 frequency coefficients.</p>
-        <p style="margin-top:0.5rem">The top-left coefficient (DC) is the average brightness. Moving right/down increases horizontal/vertical frequency. Most image energy concentrates in the low-frequency (top-left) coefficients.</p>
+        <p style="margin-top:0.5rem">The top-left coefficient (DC) is the average brightness. Moving right/down increases horizontal/vertical frequency. Both grids hold 64 numbers — nothing has been thrown away, and nothing saved. What changes is that the numbers are now sorted by how much they matter.</p>
       </ExpandablePanel>
     </template>
   </SlideLayout>
@@ -182,24 +155,12 @@ onMounted(drawAll)
   color: var(--accent);
 }
 
-.toolbar {
-  position: absolute;
-  top: 1.5rem;
-  right: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.build-slider {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
+.compaction {
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 
-.build-slider input[type="range"] {
-  width: 140px;
+.compaction strong {
+  color: var(--positive);
 }
 </style>
