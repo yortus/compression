@@ -1,8 +1,6 @@
 import type { Act, SlideDef } from './types'
 
 import Step0Source from '../components/steps/Step0Source.vue'
-import Step1ColorSpace from '../components/steps/Step1ColorSpace.vue'
-import Step2Subsampling from '../components/steps/Step2Subsampling.vue'
 import Step3Blocks from '../components/steps/Step3Blocks.vue'
 import Step4DCT from '../components/steps/Step4DCT.vue'
 import Step5Quantization from '../components/steps/Step5Quantization.vue'
@@ -14,10 +12,13 @@ import Step9Summary from '../components/steps/Step9Summary.vue'
 import RleText from '../components/slides/RleText.vue'
 import RleTwoWay from '../components/slides/RleTwoWay.vue'
 import RlePrimer from '../components/slides/RlePrimer.vue'
-import RleBitmap from '../components/slides/RleBitmap.vue'
-import RlePalette from '../components/slides/RlePalette.vue'
-import RlePlanes from '../components/slides/RlePlanes.vue'
+import BmpRgb from '../components/slides/BmpRgb.vue'
+import BmpPalette from '../components/slides/BmpPalette.vue'
 import LossyVsLossless from '../components/slides/LossyVsLossless.vue'
+
+import ColourPlanes from '../components/slides/ColourPlanes.vue'
+import YcbcrPlanes from '../components/slides/YcbcrPlanes.vue'
+import ChromaSubsample from '../components/slides/ChromaSubsample.vue'
 
 import TitleSlide from '../components/slides/TitleSlide.vue'
 import WhyCare from '../components/slides/WhyCare.vue'
@@ -134,31 +135,21 @@ export const SLIDES: SlideDef[] = [
     fragments: 2,
   },
   {
-    id: 'rle-bitmap',
+    id: 'bmp-rgb',
     act: 'simple',
-    title: 'RLE on a Bitmap',
-    subtitle: 'The same encoder, pointed at pixels',
-    component: RleBitmap,
+    title: 'A Real Bitmap',
+    subtitle: '24-bit BMP, and what RLE does to it',
+    component: BmpRgb,
     tag: 'core',
     controls: ['image'],
     fragments: 2,
   },
   {
-    id: 'rle-palette',
+    id: 'bmp-palette',
     act: 'simple',
-    title: 'Palettise, Then RLE',
-    subtitle: 'Pixels become indices',
-    component: RlePalette,
-    tag: 'core',
-    controls: ['image'],
-    fragments: 2,
-  },
-  {
-    id: 'rle-planes',
-    act: 'simple',
-    title: 'Colour Planes',
-    subtitle: 'Same bytes, different order',
-    component: RlePlanes,
+    title: 'Pixels Become Indices',
+    subtitle: 'The three ways BMP can store the same picture',
+    component: BmpPalette,
     tag: 'core',
     controls: ['image'],
     fragments: 2,
@@ -173,22 +164,34 @@ export const SLIDES: SlideDef[] = [
     fragments: 2,
   },
   {
-    id: 'ycbcr',
+    id: 'rgb-planes',
     act: 'colour',
-    title: 'Colour Space',
-    subtitle: 'RGB → YCbCr',
-    component: Step1ColorSpace,
+    title: 'Colour Planes',
+    subtitle: 'Same bytes, a different order',
+    component: ColourPlanes,
     tag: 'core',
     controls: ['image'],
+    fragments: 2,
+  },
+  {
+    id: 'ycbcr',
+    act: 'colour',
+    title: 'Better Axes',
+    subtitle: 'RGB → YCbCr, and the redundancy falls out',
+    component: YcbcrPlanes,
+    tag: 'core',
+    controls: ['image'],
+    fragments: 2,
   },
   {
     id: 'chroma-subsample',
     act: 'colour',
-    title: 'Chroma Subsampling',
-    subtitle: 'Reducing colour resolution',
-    component: Step2Subsampling,
+    title: 'Throwing Colour Away',
+    subtitle: 'Shrink the two planes you were not reading',
+    component: ChromaSubsample,
     tag: 'core',
     controls: ['image', 'subsampling'],
+    fragments: 2,
   },
   {
     id: 'huffman-build',

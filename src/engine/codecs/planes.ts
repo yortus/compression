@@ -80,3 +80,44 @@ export function planeToImageData(
   }
   return out
 }
+
+/**
+ * Pearson correlation between two planes, -1 to 1.
+ *
+ * This is the number that explains the whole colour act. Split an image into R, G and B
+ * and all three planes look like the picture — bright where the picture is bright — so
+ * they are strongly correlated, typically 0.9 or above. That correlation is pure
+ * redundancy: the same information stored three times, and no amount of run-length
+ * cleverness touches it, because it is a relationship *between* planes rather than along
+ * one of them.
+ *
+ * Rotating to YCbCr is the fix, and it is worth showing rather than asserting: the same
+ * measurement on Y, Cb and Cr collapses towards zero. Nothing was discarded to achieve
+ * that — the transform is invertible — which is why it is the purest example in the deck
+ * of a reframe doing the work.
+ */
+export function correlation(a: ArrayLike<number>, b: ArrayLike<number>): number {
+  const n = Math.min(a.length, b.length)
+  if (n === 0) return 0
+
+  let sumA = 0
+  let sumB = 0
+  for (let i = 0; i < n; i++) { sumA += a[i]; sumB += b[i] }
+  const meanA = sumA / n
+  const meanB = sumB / n
+
+  let cov = 0
+  let varA = 0
+  let varB = 0
+  for (let i = 0; i < n; i++) {
+    const da = a[i] - meanA
+    const db = b[i] - meanB
+    cov += da * db
+    varA += da * da
+    varB += db * db
+  }
+
+  const denom = Math.sqrt(varA * varB)
+  // A perfectly flat plane has no variance and no meaningful correlation with anything.
+  return denom === 0 ? 0 : cov / denom
+}

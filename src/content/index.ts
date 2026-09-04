@@ -1,6 +1,7 @@
 import type { ProseRegistry, SlideProse } from './types'
 import { ACT0_PROSE } from './act0'
 import { ACT1_PROSE } from './act1'
+import { ACT2_PROSE } from './act2'
 import { ACT345_PROSE } from './act345'
 import { ACT6_PROSE } from './act6'
 
@@ -8,6 +9,7 @@ import { ACT6_PROSE } from './act6'
 export const PROSE: ProseRegistry = {
   ...ACT0_PROSE,
   ...ACT1_PROSE,
+  ...ACT2_PROSE,
   ...ACT345_PROSE,
   ...ACT6_PROSE,
 }

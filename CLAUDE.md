@@ -90,6 +90,10 @@ slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
   `sampleBlockIndices`, a golden-ratio sequence — *not* a fixed stride. Every sample image is 512px
   wide, so a channel is exactly 64 blocks across and a stride of `n / 64` silently measures one
   column of the image. That bug made line art report the same ratio at every quality setting.
+- **`engine/formats/bmp.ts` is real BMP arithmetic**, not BMP-flavoured prose: the 54-byte header,
+  four bytes per palette entry, rows padded to a four-byte boundary, and `BI_RLE8` encoded and
+  decoded per spec. Act 1 is built on it, because the format's own compression field makes the
+  act's argument — BMP has no 24-bit RLE mode, only palettised ones.
 - **`engine/jpeg/stages.ts` prices the whole chain stage by stage** for the finale slide, and
   `compareScanOrders` there backs the zigzag comparison. Note what it found: reordering does *not*
   change the RLE pair count, and the DCT *reduces* order-0 entropy rather than increasing it.

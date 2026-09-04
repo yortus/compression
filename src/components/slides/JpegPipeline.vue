@@ -65,9 +65,9 @@ useStat('jpeg-pipeline', () => {
 
 /** What the simple techniques managed on this image, if those slides have been visited. */
 const EARLIER = [
-  { id: 'rle-bitmap', label: 'RLE straight over RGB' },
-  { id: 'rle-planes', label: 'RLE over colour planes' },
-  { id: 'rle-palette', label: 'Palette + RLE' },
+  { id: 'bmp-rgb', label: 'RLE straight over RGB' },
+  { id: 'rgb-planes', label: 'RLE over colour planes' },
+  { id: 'bmp-palette', label: 'BMP palette + RLE' },
 ]
 
 const earlier = computed(() =>

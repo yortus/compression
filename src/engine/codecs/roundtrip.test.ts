@@ -4,7 +4,7 @@ import {
   encodeEscape, decodeEscape, escapeRLE, MAX_RUN, ESCAPE_THRESHOLD,
 } from './rle'
 import { palettise, paletteToImageData, indexBits } from './palette'
-import { splitPlanes, joinPlanes, interleavedBytes, planeToImageData } from './planes'
+import { splitPlanes, joinPlanes, interleavedBytes, planeToImageData, correlation } from './planes'
 import { roundTrips } from './types'
 import { compareImages } from '../compare'
 import { buildHuffman, countSymbols, encodeSymbols, decodeBits, payloadBits } from './huffman'
@@ -12,6 +12,10 @@ import {
   SIGNAL_PRESETS, SIGNAL_LENGTH, dct1d, idct1d, partialReconstruct, rmse, energyRank,
 } from '../signal'
 import { sampleBlockIndices } from '../jpeg/pipeline'
+import {
+  encodeRle8, decodeRle8, rleWouldExpand, rowStride, uncompressedSize,
+} from '../formats/bmp'
+import { imageToYcbcr } from '../jpeg/colorspace'
 
 /**
  * These tests exist for one reason: the deck stands in front of a room and claims every
@@ -348,5 +352,98 @@ describe('whole-image block sampling', () => {
 
   it('returns every block when there are fewer than asked for', () => {
     expect(sampleBlockIndices(9, 64)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
+  })
+})
+
+describe('BMP BI_RLE8', () => {
+  function roundTrip(indices: number[], width: number, height: number) {
+    const src = Uint8Array.from(indices)
+    const encoded = encodeRle8(src, width, height)
+    return { encoded, decoded: decodeRle8(encoded, width, height) }
+  }
+
+  const CASES: [string, number[], number, number][] = [
+    ['long runs', [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2], 6, 2],
+    ['no runs at all', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 6, 2],
+    ['alternating', [1, 2, 1, 2, 1, 2, 1, 2], 4, 2],
+    ['single colour', new Array(64).fill(7), 8, 8],
+    ['odd literal count', [1, 2, 3, 9, 9, 9, 9, 4, 5], 9, 1],
+    ['run longer than 255', new Array(600).fill(3), 600, 1],
+    ['one pixel', [42], 1, 1],
+  ]
+
+  it.each(CASES)('decodes back exactly: %s', (_name, indices, width, height) => {
+    const { decoded } = roundTrip(indices, width, height)
+    expect([...decoded]).toEqual(indices)
+  })
+
+  it('always terminates with the end-of-bitmap marker', () => {
+    const { encoded } = roundTrip([1, 1, 1, 2, 3], 5, 1)
+    expect([encoded[encoded.length - 2], encoded[encoded.length - 1]]).toEqual([0, 1])
+  })
+
+  it('pads an odd-length absolute block to a word boundary', () => {
+    // Three literals is the shortest absolute block, and needs one byte of padding.
+    const { encoded } = roundTrip([1, 2, 3], 3, 1)
+    expect([...encoded.slice(0, 6)]).toEqual([0, 3, 1, 2, 3, 0])
+  })
+
+  it('collapses a flat image far below its uncompressed size', () => {
+    const flat = new Uint8Array(64 * 64).fill(5)
+    const encoded = encodeRle8(flat, 64, 64)
+    expect(encoded.length).toBeLessThan(uncompressedSize(64, 64, 8, 256) / 10)
+  })
+
+  // The failure mode the act is built on: RLE over data with no runs costs more than
+  // it saves, which is why a real encoder checks before choosing BI_RLE8.
+  it('notices when RLE would expand the file', () => {
+    const noise = Uint8Array.from({ length: 64 * 64 }, (_, i) => (i * 37) % 251)
+    expect(rleWouldExpand(64, 64, noise, 256)).toBe(true)
+    const flat = new Uint8Array(64 * 64).fill(5)
+    expect(rleWouldExpand(64, 64, flat, 256)).toBe(false)
+  })
+
+  it('pads rows to a four-byte boundary', () => {
+    expect(rowStride(1, 24)).toBe(4)   // 3 bytes of pixel, one of padding
+    expect(rowStride(2, 24)).toBe(8)   // 6 -> 8
+    expect(rowStride(4, 24)).toBe(12)  // already aligned
+    expect(rowStride(5, 8)).toBe(8)    // 5 -> 8
+  })
+})
+
+describe('plane correlation', () => {
+  it('is 1 for a plane against itself', () => {
+    const a = Uint8Array.from([1, 5, 9, 20, 200, 4])
+    expect(correlation(a, a)).toBeCloseTo(1, 10)
+  })
+
+  it('is -1 for a plane against its inverse', () => {
+    const a = Uint8Array.from([0, 50, 100, 150, 200, 250])
+    const b = Uint8Array.from([...a].map(v => 255 - v))
+    expect(correlation(a, b)).toBeCloseTo(-1, 10)
+  })
+
+  it('is 0 for a flat plane, which correlates with nothing', () => {
+    expect(correlation(new Uint8Array(8).fill(7), Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8]))).toBe(0)
+  })
+
+  // The colour act's claim, checked on synthetic data: a grey-ish image has near-identical
+  // RGB planes, and the YCbCr rotation is what breaks that redundancy up.
+  it('finds RGB planes correlated and YCbCr planes much less so', () => {
+    const n = 4096
+    const img = new ImageData(64, 64)
+    for (let i = 0; i < n; i++) {
+      const base = (i * 7) % 200
+      img.data[i * 4] = base + 20
+      img.data[i * 4 + 1] = base + 10
+      img.data[i * 4 + 2] = base
+      img.data[i * 4 + 3] = 255
+    }
+    const { r, g, b } = splitPlanes(img)
+    expect(Math.abs(correlation(r, g))).toBeGreaterThan(0.99)
+    expect(Math.abs(correlation(g, b))).toBeGreaterThan(0.99)
+
+    const ycbcr = imageToYcbcr(img)
+    expect(Math.abs(correlation(ycbcr.y, ycbcr.cb))).toBeLessThan(0.5)
   })
 })

@@ -69,3 +69,40 @@ export function channelToImageData(channel: Float64Array, width: number, height:
 
   return imageData
 }
+
+export type YcbcrChannel = 'y' | 'cb' | 'cr'
+
+/**
+ * Render one YCbCr plane for display.
+ *
+ * Greyscale is the literal reading, and for Y it is the right one — Y *is* brightness.
+ * For the chroma planes it is actively misleading: rendered grey, Cb and Cr look like two
+ * noisy, interchangeable copies of the picture, when what they actually hold is
+ * blue-ness and red-ness. Mapping each one back through the colour transform with the
+ * other two channels held neutral shows the axis it really encodes — Cb running
+ * yellow-to-blue, Cr running cyan-to-red — and makes it obvious at a glance that Y is
+ * carrying the image and the other two are carrying tint.
+ */
+export function ycbcrPlaneToImageData(
+  plane: Float64Array,
+  width: number,
+  height: number,
+  channel: YcbcrChannel,
+  coloured = true,
+): ImageData {
+  if (channel === 'y' || !coloured) return channelToImageData(plane, width, height)
+
+  const imageData = new ImageData(width, height)
+  const data = imageData.data
+  for (let i = 0; i < width * height; i++) {
+    const v = plane[i]
+    // Neutral luma, neutral on the other chroma axis: only this plane varies.
+    const [r, g, b] = channel === 'cb' ? ycbcrToRgb(128, v, 128) : ycbcrToRgb(128, 128, v)
+    const off = i * 4
+    data[off] = r
+    data[off + 1] = g
+    data[off + 2] = b
+    data[off + 3] = 255
+  }
+  return imageData
+}

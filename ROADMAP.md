@@ -88,70 +88,69 @@ else is new. Ids are also the deep-link fragments (`#/rle-palette`).
 | `timeline` | Key people, dates, techniques — data-driven from `src/content/timeline.ts` | optional |
 | `optimisation` | Compression as optimisation; the Knuth "root of all evil" riff; the ratio/speed/fidelity trade | core |
 
-### Act 1 — Start simple: RLE (new — the biggest build)
+### Act 1 — Start simple: RLE, told through BMP
 
 | Id | Slide | Notes |
 |----|-------|-------|
 | `rle-text` | RLE on general data. Editable input, live runs, live stats. Show it *expanding* poorly-suited input | core |
 | `rle-two-way` | Forward and inverse side by side; round-trip proof | core |
-| `rle-primer` | The escape/marker convention both sides must already agree on; overhead enters the stats | core |
-| `rle-bitmap` | RLE straight over RGB pixels — barely helps, often hurts | core |
-| `rle-palette` | Palettise, then RLE — big win; palette table counted as overhead | core |
-| `rle-planes` | Split into R/G/B planes, RLE each — another win from pure reframing | core |
+| `rle-primer` | The escape/marker convention both sides must already agree on — anchored to BMP's own, where a count of zero is the escape | core |
+| `bmp-rgb` | A real 24-bit `BI_RGB` bitmap, run-length coded. It expands | core |
+| `bmp-palette` | The same picture as three real BMP files: 24-bit `BI_RGB`, 8-bit `BI_RGB`, 8-bit `BI_RLE8` | core |
 | `lossy-vs-lossless` | Name the two families; locate where the loss actually lives | core |
 
-**The sample set is part of the argument.** Fourteen images in `engine/loadImage.ts`, laid out in the
-picker as three rows of five: photographs and continuous tone, flat-colour graphics, then structure
-and stress tests. Each is there to flatter or break something — `flat` and `lineart` for RLE,
-`dither` and `noise` to defeat it, `text` for JPEG ringing, `parrot` for saturated chroma, `forest`
-for high-frequency detail that is nearly monochrome, `checker` for the highest frequency a block can
-hold, and `sweep` — a linear chirp with falling contrast — where dropping the quality slider visibly
-eats the fine end of the image while the coarse end survives. `scripts/generate-samples.mjs` builds the synthetic ones deterministically, downloads
-the two freely-licensed photographs from Wikimedia Commons (credits in
-`public/samples/CREDITS.md`), and skips anything already present — `--force` rebuilds. The skip
-matters: `photo.jpg`'s original URL now 403s, so a blind rebuild would replace it with a fallback.
+**The act is built around one real format, and the format makes the argument for us.** BMP has an
+uncompressed mode, a palettised mode, and a run-length mode that exists *only* for palettised
+images — there is no 24-bit RLE in BMP at all. So the deck never has to claim that RLE needs a
+reframe before it works; `biCompression` has said so since 1990. `engine/formats/bmp.ts` prices
+these as whole files, with the real 54-byte header, four bytes per palette entry, rows padded to a
+four-byte boundary, and `BI_RLE8` encoded and decoded exactly as specified — including its escape
+convention (`00 00` end of line, `00 01` end of bitmap, `00 02` delta, `00 n` literal block), which
+is `rle-primer`'s shared primer shipped in a format everyone has opened by accident.
 
-**`pixelart.png` is built for the DCT slides.** Forty-four hand-drawn sprites (`scripts/pixelart.mjs`)
-on white, every one aligned to the 8×8 lattice with a blank cell of padding, so a JPEG block holds
-either blank white, one whole 8×8 sprite, or one quadrant of a 16×16 one. Selecting such a block
-gives a coefficient grid made of a handful of flat values instead of photographic mush — block 1230
-is a good demonstration. Flat sprites are nearly pure DC; the multicolour ones light up the high
-frequencies.
+Two beats fall out of the format for free. The 8-bit `BI_RGB` row is palettisation with no coder
+attached — exactly 3:1 before anything clever happens — which separates the reframe from the
+compression far more cleanly than the old combined slide did. And when RLE would expand the file (a
+photograph at 256 colours), a real encoder writes `BI_RGB` instead: a bounded worst case reached by
+*declining*, which is the `brittle-vs-robust` argument arriving four acts early.
 
-The three benchmark images are not decoration in this act — they are the experiment. The same encoder
-run over Photo, Graphic and Gradient spans 0.50:1 to 10.6:1, and `rle-bitmap` and `rle-planes`
-should invite the audience to switch between them and watch the verdict text flip. That spread is
-the first evidence for the brittleness argument the conclusions pick up, and `lossy-vs-lossless`
-should record not just what each technique achieved but how much it varied.
+Colour-plane separation used to live here as `rle-planes`. It moved to Act 2, where it belongs —
+see below.
 
-### Act 2 — Colour space (mostly reuse)
+### Act 2 — Reframing colour
 
 | Id | Slide | Notes |
 |----|-------|-------|
-| `ycbcr` | RGB to YCbCr as a reframe. **Y, Cb and Cr shown side by side at once**, chroma planes in colour | core; rework `Step1ColorSpace` |
-| `psychovisual` | Rod and cone density in the human eye, and why Y carries the picture; would a mantis shrimp build this codec? | core; new |
-| `chroma-subsample` | 4:4:4 / 4:2:2 / 4:2:0 with an A/B "can you actually see it?" | core; reuse `Step2Subsampling` |
+| `rgb-planes` | Split into R/G/B planes and RLE each. Free, it helps, and the planes still look alike | core; moved here from Act 1 |
+| `ycbcr` | RGB to YCbCr. Y, Cb and Cr side by side at once, chroma planes rendered in colour | core |
+| `chroma-subsample` | Shrink the two planes nobody was reading. 4:4:4 / 4:2:2 / 4:2:0 with an A/B | core |
+| `psychovisual` | Rod and cone density in the human eye; would a mantis shrimp build this codec? | optional; not built |
 
-This act runs discovery-then-explanation, so the order matters: the audience sees the three planes
-and notices Y alone reads as the picture, *then* finds out why, *then* watches the codec exploit it.
+**The act is one argument in three moves, and the three slides are deliberately the same layout.**
+Pull the image into three planes; notice they resemble each other, which is duplication no
+run-length coder can reach; rotate the axes so they stop resembling each other and the picture
+concentrates into one of them; then throw away resolution on the two that are not carrying it. The
+only thing that visibly changes between the first two slides is the *content* of the three
+pictures, which is the point.
 
-**`ycbcr` — three-up, and chroma in colour.** The current `Step1ColorSpace` toggles one channel at a
-time via an `activeChannel` ref and renders all three through `channelToImageData` in greyscale.
-Both need to go. Show the three planes simultaneously so they can be compared at a glance, and
-render each chroma plane along the colour axis it actually encodes — hold Y at mid-grey and the
-other chroma channel at neutral 128, then map the plane through `ycbcrToRgb`, which gives Cb its
-true blue-to-yellow ramp and Cr its red-to-cyan one. Greyscale chroma planes are the thing that
-makes this slide forgettable: they look like noisy duplicates of each other instead of the
-blue-ness and red-ness maps they are. Y stays greyscale, correctly, and label all three with their
-size — identical at this point in the pipeline, which is the whole setup for the next slide.
+**Correlation is the measured thread.** Both slides compute Pearson correlation between their
+planes (`codecs/planes.ts`), so "these are the same picture three times" is a number rather than a
+claim. That mattered: measured across the sample set it ranges from 0.96 on Forest down to 0.03 on
+Mosaic, and the *default* peppers photograph is a weak case at 0.31 — a saturated close-up really
+does have different reds and blues. Both slides therefore grade their own wording off the
+measurement and point at Forest for the textbook case.
 
-**`psychovisual` — the eye.** A diagram of rod and cone distribution across the retina: roughly 120
-million rods to 6 million cones, cones bunched in the fovea, and the blue-sensitive cones both the
-rarest and absent from the very centre. Check the figures against a source before they go on a
-slide. That lands the payoff the previous slide set up: all three planes carry the same number of
-bits, but you read the image almost entirely out of Y. The interaction that proves it rather than
-asserting it — destroy one plane and look: scramble or flatten the chroma and the photo survives
-nearly intact, do the same to luma and it is gone. That A/B is what earns the subsampling slide.
+That finding also reordered the `ycbcr` slide's argument. Decorrelation is the textbook benefit but
+it is image-dependent; **concentration** — Y ends up holding the picture whatever the correlation
+does — happens on every image, and it is the one `chroma-subsample` actually depends on. So the
+slide leads with concentration and treats the correlation drop as the secondary, measured result.
+
+**Chroma planes are rendered in colour, and that is load-bearing.** Drawn in greyscale, Cb and Cr
+look like two noisy duplicates of the photograph and the slide teaches nothing. Holding Y at
+mid-grey and the other chroma channel at neutral 128, then mapping through `ycbcrToRgb`, gives Cb
+its true yellow-to-blue ramp and Cr its cyan-to-red one — at which point it is obvious by looking
+that Y is the picture and the other two are tint. A greyscale toggle is kept so the presenter can
+show exactly that comparison.
 
 ### Act 3 — Huffman (reuse and generalise)
 
@@ -317,7 +316,9 @@ it is what proves the stats layer is designed right.
 **Done when:** all seven Act 1 slides run, the RGB-RLE slide visibly expands its input, the palette
 and plane variants show their wins, and every stat includes primer overhead.
 
-*Measured across the three samples* (raw 768 KB each), which is what the slides now say out loud:
+*Measured across the three samples* (raw 768 KB each). These figures come from the original
+toy-codec version of the act; the BMP rework below reprices the palette row as a whole file, which
+is lower and more honest:
 
 | | interleaved RLE | R/G/B planes | palette 16 + RLE |
 |---|---|---|---|
@@ -408,6 +409,29 @@ more expensive. Measured, it is the second-largest saving on the board (−63% o
 entropy is not preserved by a rotation: decorrelating the samples is precisely what makes a
 memoryless coder do better, and that is the entire reason transform coding exists. The commentary
 under the table is now generated from the measured deltas rather than written in advance.
+
+### Rework — Acts 1 and 2 around real formats ✅ done
+Act 1 rebuilt on Windows BMP; colour-plane separation moved into Act 2, and Act 2 reworked into one
+three-move argument. Motivated by a simple observation: a talk that invents its own toy codecs
+invites "yes, but does anything really do that?", and BMP answers it without our help.
+
+*Delivered:* Act 1 is six slides instead of seven, three of them anchored to real `biCompression`
+values and priced by a new `engine/formats/bmp.ts` (real header, palette and row padding, with
+`BI_RLE8` encoded *and decoded* per spec — twelve round-trip cases in the test suite). Act 2 is
+three slides sharing one layout, with plane correlation as a measured through-line.
+
+**A third contradicted expectation, in the same vein as P4 and P5.** The colour act was written
+around "RGB planes are strongly correlated, and the rotation removes that redundancy". Measured
+across all fourteen samples, that holds beautifully on some (Forest 0.96 → 0.60, Line art 1.00 →
+0.00) and not at all on others — including the deck's *default* image, where peppers measure 0.31
+before and 0.29 after. Rather than swap the default or quietly drop the claim, both slides now
+grade their own wording off the measurement, and the `ycbcr` slide leads with the benefit that is
+actually universal (concentration into Y) instead of the one that is not.
+
+Numbers worth keeping: at 16 colours the peppers photograph goes 768.1 KB → 256.1 KB (3.00:1) →
+47.7 KB (16.12:1) across the three BMP variants. The old idealised palette slide claimed 23.5:1 for
+the same thing; the difference is real BMP overhead — two bytes per run, per-row end markers, the
+palette and the header.
 
 ### P6 — Publish and polish
 Learn mode as the off-presentation default, `base` config and static deploy, share metadata,
