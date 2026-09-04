@@ -39,7 +39,8 @@ Standing constraints from the draft, to be honoured everywhere:
   key controls (jump forward/back, change the image, adjust settings) and the compression stats
   visible and usable *everywhere* — never buried inside whichever slide happens to own them. The
   zoom loupe belongs to this set: any slide showing an image gets it, from one shared implementation
-  (`v-loupe` on the canvas), never a per-slide reimplementation.
+  (`v-loupe` on the canvas), never a per-slide reimplementation. So does the image picker: a single
+  thumbnail in the control bar that opens a 4×3 grid of samples plus a "Choose…" tile.
 
 ## 2. Design principles
 
@@ -91,7 +92,25 @@ else is new. Ids are also the deep-link fragments (`#/rle-palette`).
 | `rle-planes` | Split into R/G/B planes, RLE each — another win from pure reframing | core |
 | `lossy-vs-lossless` | Name the two families; locate where the loss actually lives | core |
 
-The three sample images are not decoration in this act — they are the experiment. The same encoder
+**The sample set is part of the argument.** Fourteen images in `engine/loadImage.ts`, laid out in the
+picker as three rows of five: photographs and continuous tone, flat-colour graphics, then structure
+and stress tests. Each is there to flatter or break something — `flat` and `lineart` for RLE,
+`dither` and `noise` to defeat it, `text` for JPEG ringing, `parrot` for saturated chroma, `forest`
+for high-frequency detail that is nearly monochrome, `checker` for the highest frequency a block can
+hold, and `sweep` — a linear chirp with falling contrast — where dropping the quality slider visibly
+eats the fine end of the image while the coarse end survives. `scripts/generate-samples.mjs` builds the synthetic ones deterministically, downloads
+the two freely-licensed photographs from Wikimedia Commons (credits in
+`public/samples/CREDITS.md`), and skips anything already present — `--force` rebuilds. The skip
+matters: `photo.jpg`'s original URL now 403s, so a blind rebuild would replace it with a fallback.
+
+**`pixelart.png` is built for the DCT slides.** Forty-four hand-drawn sprites (`scripts/pixelart.mjs`)
+on white, every one aligned to the 8×8 lattice with a blank cell of padding, so a JPEG block holds
+either blank white, one whole 8×8 sprite, or one quadrant of a 16×16 one. Selecting such a block
+gives a coefficient grid made of a handful of flat values instead of photographic mush — block 1230
+is a good demonstration. Flat sprites are nearly pure DC; the multicolour ones light up the high
+frequencies.
+
+The three benchmark images are not decoration in this act — they are the experiment. The same encoder
 run over Photo, Graphic and Gradient spans 0.50:1 to 10.6:1, and `rle-bitmap` and `rle-planes`
 should invite the audience to switch between them and watch the verdict text flip. That spread is
 the first evidence for the brittleness argument the conclusions pick up, and `lossy-vs-lossless`
@@ -307,10 +326,30 @@ The `vitest` round-trip suite from §6 landed with this phase: `npm run test` (2
 `src/engine/codecs/roundtrip.test.ts`), covering both RLE forms, the palette and the plane split.
 `vue-tsc` type-checks the test file during `npm run build`, so a broken test file fails the build.
 
-### P3 — Acts 0 and 6, framing and conclusions
+### P3 — Acts 0 and 6, framing and conclusions ✅ done
 Cheap relative to their value: mostly prose, the timeline data file, and the entropy widget. This is
 what turns a demo into a talk.
 **Done when:** the deck runs start to finish as an argument, and a first timed dry run is possible.
+
+*Delivered:* 29 slides across all seven acts. Act 0 is `title`, `why-care`, `info-theory` (live
+Shannon entropy over editable text), `timeline` and `optimisation`; Act 6 is `wider-audio`,
+`wider-general`, `modern`, `brittle-vs-robust`, `lossiness-subjective`, `reframing` and `end`.
+Five of the narrative slides share one `PointsSlide` component driven by `src/content/points.ts`,
+so they cannot drift apart visually.
+
+Two things worth knowing for later phases:
+
+- **`estimateEncodedBits` in `engine/jpeg/pipeline.ts` is now the single whole-image size estimate**,
+  sampling ~64 blocks per channel instead of extrapolating from whichever block happened to be
+  selected. `jpeg-result`, `why-care` and the benchmark all use it, so their headline numbers agree.
+  It is still idealised — per-block optimal Huffman with no code tables counted — and the slides now
+  say so rather than implying a real encoder.
+- **`engine/benchmark.ts` measures every technique against every sample** and caches the result for
+  the session; `brittle-vs-robust` renders it. Robustness there is ranked by *worst case*, not by low
+  variance: interleaved RLE barely varies either, but only because it is reliably useless, and the
+  first version of that slide accidentally crowned it the most robust technique.
+
+*Not yet done from P3's spirit:* the timed dry run itself, which is the user's to do.
 
 ### P4 — Depth in Acts 3 and 4
 Interactive Huffman tree build; `waves-intro` and `dct-1d`; the animated 64 basis images; the

@@ -4,6 +4,7 @@ import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { useStat } from '../../stats/useStats'
+import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -16,15 +17,10 @@ const diffCanvas = ref<HTMLCanvasElement>()
 
 const compressionRatio = computed(() => {
   const src = pipeline.sourceImageData.value
-  if (!src) return null
+  const cache = pipeline.cache.value
+  if (!src || !cache) return null
   const rawBytes = src.width * src.height * 3
-  const huffman = pipeline.selectedHuffman.value
-  if (!huffman) return null
-  const blocks = pipeline.quantizedBlocks.value
-  if (!blocks) return null
-  const totalBlocks = blocks.y.blocks.length + blocks.cb.blocks.length + blocks.cr.blocks.length
-  const estimatedBits = huffman.totalBits * totalBlocks
-  const estimatedBytes = Math.ceil(estimatedBits / 8)
+  const estimatedBytes = Math.ceil(estimateEncodedBits(cache) / 8)
   return {
     rawBytes,
     estimatedBytes,
@@ -42,7 +38,7 @@ useStat('jpeg-result', () => {
     encodedBits: r.estimatedBytes * 8,
     overheadBits: 0,
     lossy: true,
-    note: `estimated · Q=${pipeline.quality.value}`,
+    note: `idealised · Q=${pipeline.quality.value} · no code tables`,
   }
 })
 

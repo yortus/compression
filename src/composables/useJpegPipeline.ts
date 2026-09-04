@@ -75,6 +75,8 @@ export function createJpegPipeline() {
   })
 
   return {
+    /** Raw pipeline cache, for the whole-image size estimate. */
+    cache,
     sourceImageData,
     quality,
     subsamplingMode,
@@ -96,4 +98,4 @@ export function createJpegPipeline() {
 }
 
 export type JpegPipeline = ReturnType<typeof createJpegPipeline>
-export const PIPELINE_KEY = Symbol('pipeline') as InjectionKey<JpegPipeline>
+export const PIPELINE_KEY = Symbol.for('compression.pipeline') as InjectionKey<JpegPipeline>

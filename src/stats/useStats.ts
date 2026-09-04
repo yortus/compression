@@ -48,7 +48,7 @@ export function createStats() {
 }
 
 export type Stats = ReturnType<typeof createStats>
-export const STATS_KEY = Symbol('stats') as InjectionKey<Stats>
+export const STATS_KEY = Symbol.for('compression.stats') as InjectionKey<Stats>
 
 /**
  * Publish this slide's compression stats to the always-on HUD.

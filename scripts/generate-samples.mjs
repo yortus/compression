@@ -1,11 +1,52 @@
 import sharp from 'sharp'
-import { writeFileSync, mkdirSync } from 'fs'
+import { SPRITES_8, SPRITES_16, spriteColor } from './pixelart.mjs'
+import { existsSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const samplesDir = join(__dirname, '..', 'public', 'samples')
 mkdirSync(samplesDir, { recursive: true })
+
+const FORCE = process.argv.includes('--force')
+const SIZE = 512
+
+/** Skip work that is already done — the peppers photo cannot be re-downloaded. */
+function needs(name) {
+  if (FORCE || !existsSync(join(samplesDir, name))) return true
+  console.log(`  · ${name} already exists, skipping (use --force to rebuild)`)
+  return false
+}
+
+/** Deterministic PRNG, so the sample set is reproducible. */
+function rng(seed) {
+  return () => {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+async function raw(buf, name) {
+  await sharp(buf, { raw: { width: SIZE, height: SIZE, channels: 3 } })
+    .png()
+    .toFile(join(samplesDir, name))
+  console.log(`  ✓ ${name}`)
+}
+
+function surface(fn) {
+  const buf = Buffer.alloc(SIZE * SIZE * 3)
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const [r, g, b] = fn(x, y)
+      const i = (y * SIZE + x) * 3
+      buf[i] = r; buf[i + 1] = g; buf[i + 2] = b
+    }
+  }
+  return buf
+}
 
 // --- Photo: download bell peppers from Pixabay (CC0) ---
 async function downloadPhoto() {
@@ -192,9 +233,280 @@ function hslToRgb(h, s, l) {
   ]
 }
 
+
+
+
+/** Big flat areas: the case run-length encoding was invented for. */
+async function generateFlat() {
+  const palette = [
+    [230, 57, 70], [241, 250, 238], [168, 218, 220],
+    [69, 123, 157], [29, 53, 87], [244, 162, 97],
+  ]
+  await raw(surface((x, y) => {
+    const band = Math.floor(y / (SIZE / 3))
+    const col = Math.floor(x / (SIZE / 2))
+    return palette[(band * 2 + col) % palette.length]
+  }), 'flat.png')
+}
+
+/** A 2px checkerboard — the highest frequency an 8x8 DCT block can carry. */
+async function generateChecker() {
+  await raw(surface((x, y) => {
+    const on = ((x >> 1) + (y >> 1)) % 2 === 0
+    return on ? [250, 250, 250] : [12, 12, 12]
+  }), 'checker.png')
+}
+
+/**
+ * Frequency sweep: a linear chirp left to right, contrast falling top to bottom.
+ *
+ * Every spatial frequency the format can represent appears exactly once, so lowering the
+ * quality slider visibly eats the image from the right (fine detail) and the bottom (low
+ * contrast) inwards. It turns quantisation from a claim into something you watch happen.
+ */
+async function generateSweep() {
+  const F0 = 1 / 64          // cycles per pixel at the left edge
+  const F1 = 0.42            // just under Nyquist at the right edge
+  await raw(surface((x, y) => {
+    // Integrated phase, so the frequency ramps smoothly rather than jumping.
+    const phase = 2 * Math.PI * (F0 * x + ((F1 - F0) * x * x) / (2 * SIZE))
+    const contrast = 1 - 0.9 * (y / SIZE)
+    const v = Math.round(128 + 120 * contrast * Math.sin(phase))
+    const c = Math.max(0, Math.min(255, v))
+    return [c, c, c]
+  }), 'sweep.png')
+}
+
+// --- Photographs from Wikimedia Commons -----------------------------------
+// Freely licensed and downscaled hard from much larger originals, which averages the
+// source JPEG's artifacts away; stored as PNG so the deck's "raw pixels" really are raw.
+// Attribution is reproduced in public/samples/CREDITS.md.
+
+
+/**
+ * Pixel art on white, every sprite aligned to the 8x8 grid.
+ *
+ * Alignment is the point: a JPEG block then contains either blank white, one whole 8x8
+ * sprite, or one quadrant of a 16x16 one — so the DCT and quantisation slides can show a
+ * block whose content is actually identifiable. Flat sprites give an almost pure DC
+ * coefficient; the busy multicolour ones light up the high frequencies.
+ */
+async function generatePixelArt() {
+  const buf = Buffer.alloc(SIZE * SIZE * 3, 255)
+  const cells = SIZE / 8
+  const occupied = new Set()
+
+  const put = (sprite, cx, cy) => {
+    const rows = sprite
+    for (let y = 0; y < rows.length; y++) {
+      for (let x = 0; x < rows[y].length; x++) {
+        const colour = spriteColor(rows[y][x])
+        if (!colour) continue
+        const px = cx * 8 + x
+        const py = cy * 8 + y
+        if (px >= SIZE || py >= SIZE) continue
+        const i = (py * SIZE + px) * 3
+        buf[i] = colour[0]; buf[i + 1] = colour[1]; buf[i + 2] = colour[2]
+      }
+    }
+  }
+
+  const free = (cx, cy, w, h) => {
+    // One blank cell of padding, so no two sprites share a block.
+    for (let y = cy - 1; y <= cy + h; y++) {
+      for (let x = cx - 1; x <= cx + w; x++) {
+        if (occupied.has(`${x},${y}`)) return false
+      }
+    }
+    return true
+  }
+
+  const claim = (cx, cy, w, h) => {
+    for (let y = cy; y < cy + h; y++) {
+      for (let x = cx; x < cx + w; x++) occupied.add(`${x},${y}`)
+    }
+  }
+
+  const rand = rng(20240904)
+  const small = Object.values(SPRITES_8)
+  const large = Object.values(SPRITES_16)
+
+  // Large sprites first — they are harder to fit once the board fills up.
+  const plan = [
+    ...large.map(sp => ({ sp, w: 2, h: 2 })),
+    ...large.map(sp => ({ sp, w: 2, h: 2 })),
+    ...small.map(sp => ({ sp, w: 1, h: 1 })),
+    ...small.map(sp => ({ sp, w: 1, h: 1 })),
+    ...small.map(sp => ({ sp, w: 1, h: 1 })),
+  ]
+
+  let placed = 0
+  for (const { sp, w, h } of plan) {
+    for (let attempt = 0; attempt < 250; attempt++) {
+      const cx = 1 + Math.floor(rand() * (cells - w - 2))
+      const cy = 1 + Math.floor(rand() * (cells - h - 2))
+      if (!free(cx, cy, w, h)) continue
+      claim(cx, cy, w, h)
+      put(sp, cx, cy)
+      placed++
+      break
+    }
+  }
+
+  await raw(buf, 'pixelart.png')
+  console.log(`    (${placed} sprites, all on the 8px grid)`)
+}
+
+const COMMONS = {
+  parrot: {
+    title: 'Eclectus roratus closeup.jpg',
+    credit: 'Bernard Spragg. NZ',
+    licence: 'CC0',
+    why: 'saturated colour and fine feather detail against smooth bokeh',
+  },
+  forest: {
+    title: 'Birchwood Slavnoe 2012 G1.jpg',
+    credit: 'George Chernilevsky',
+    licence: 'Public domain',
+    why: 'dense high-frequency twigs over flat snow, almost monochrome',
+  },
+}
+
+const USER_AGENT = 'compression-talk-samples/1.0 (educational slide deck; contact yortus@gmail.com)'
+
+async function downloadCommons(entry, outName) {
+  const query = new URLSearchParams({
+    action: 'query',
+    titles: `File:${entry.title}`,
+    prop: 'imageinfo',
+    iiprop: 'url|size|extmetadata',
+    iiurlwidth: '2000',
+    format: 'json',
+  })
+  const meta = await fetch(`https://commons.wikimedia.org/w/api.php?${query}`, {
+    headers: { 'User-Agent': USER_AGENT },
+  })
+  if (!meta.ok) throw new Error(`Commons API ${meta.status}`)
+  const info = Object.values((await meta.json()).query.pages)[0].imageinfo[0]
+
+  const image = await fetch(info.thumburl, { headers: { 'User-Agent': USER_AGENT } })
+  if (!image.ok) throw new Error(`download ${image.status}`)
+
+  // `attention` crops toward the busiest region, which lands on the subject.
+  await sharp(Buffer.from(await image.arrayBuffer()))
+    .resize(SIZE, SIZE, { fit: 'cover', position: 'attention' })
+    .png()
+    .toFile(join(samplesDir, outName))
+  console.log(`  ✓ ${outName} — ${entry.credit}, ${entry.licence} (from ${info.width}x${info.height})`)
+}
+
+// --- Extra samples ---------------------------------------------------------
+// Each one exists to break a different technique, so the deck's "some schemes are
+// very sensitive to their input" argument has real evidence behind it.
+
+/** Small text: sharp edges everywhere, the classic JPEG ringing case. */
+async function generateText() {
+  const lines = [
+    'Compression is a bet about the data you will meet.',
+    'Run-length encoding wins on repetition and loses',
+    'on everything else. Huffman measures the symbols',
+    'first, so it adapts. Arithmetic coding gets under',
+    'a whole bit per symbol. The discrete cosine',
+    'transform does not compress anything at all —',
+    'it rearranges the picture so that throwing most',
+    'of it away stops being noticeable.',
+  ]
+  const svg = `
+  <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${SIZE}" height="${SIZE}" fill="#ffffff"/>
+    <text x="24" y="40" font-family="Georgia, serif" font-size="26" font-weight="bold" fill="#111">Sharp edges</text>
+    ${lines.map((l, i) =>
+      `<text x="24" y="${92 + i * 30}" font-family="Georgia, serif" font-size="17" fill="#111">${l}</text>`
+    ).join(' ')}
+    ${Array.from({ length: 9 }, (_, i) =>
+      `<text x="24" y="${350 + i * 17}" font-family="monospace" font-size="11" fill="#333">the quick brown fox jumps over the lazy dog 0123456789</text>`
+    ).join(' ')}
+  </svg>`
+  await sharp(Buffer.from(svg)).png().toFile(join(samplesDir, 'text.png'))
+  console.log('  ✓ text.png')
+}
+
+/** Uniform noise: no redundancy at all, so nothing lossless can help. */
+async function generateNoise() {
+  const rand = rng(1234)
+  await raw(surface(() => [rand() * 255, rand() * 255, rand() * 255]), 'noise.png')
+}
+
+/** Line art: two colours, long runs along the strokes, palettises exactly. */
+async function generateLineArt() {
+  const svg = `
+  <svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${SIZE}" height="${SIZE}" fill="#ffffff"/>
+    <g stroke="#000" fill="none" stroke-width="3">
+      <circle cx="256" cy="256" r="180"/>
+      <circle cx="256" cy="256" r="120"/>
+      <circle cx="256" cy="256" r="60"/>
+      ${Array.from({ length: 12 }, (_, i) => {
+        const a = (i / 12) * Math.PI * 2
+        return `<line x1="256" y1="256" x2="${256 + Math.cos(a) * 180}" y2="${256 + Math.sin(a) * 180}"/>`
+      }).join(' ')}
+      <rect x="76" y="76" width="360" height="360"/>
+    </g>
+  </svg>`
+  await sharp(Buffer.from(svg)).png().toFile(join(samplesDir, 'lineart.png'))
+  console.log('  ✓ lineart.png')
+}
+
+/** Ordered dithering: looks smooth, but every pixel differs from its neighbour. */
+async function generateDither() {
+  const bayer = [
+    [0, 8, 2, 10], [12, 4, 14, 6],
+    [3, 11, 1, 9], [15, 7, 13, 5],
+  ]
+  await raw(surface((x, y) => {
+    const shade = (x / SIZE) * 0.7 + (y / SIZE) * 0.3
+    const threshold = (bayer[y % 4][x % 4] + 0.5) / 16
+    const on = shade > threshold
+    return on ? [20, 24, 40] : [235, 235, 245]
+  }), 'dither.png')
+}
+
+/** Pixel-art blocks: exact repetition in both directions, few colours. */
+async function generateMosaic() {
+  const rand = rng(99)
+  const cells = 16
+  const colours = Array.from({ length: cells * cells }, () => [
+    Math.floor(rand() * 6) * 42 + 20,
+    Math.floor(rand() * 6) * 42 + 20,
+    Math.floor(rand() * 6) * 42 + 20,
+  ])
+  const step = SIZE / cells
+  await raw(surface((x, y) => {
+    const c = Math.floor(y / step) * cells + Math.floor(x / step)
+    return colours[c]
+  }), 'mosaic.png')
+}
+
+const EXTRA = [
+  ['text.png', generateText],
+  ['noise.png', generateNoise],
+  ['lineart.png', generateLineArt],
+  ['dither.png', generateDither],
+  ['mosaic.png', generateMosaic],
+  ['pixelart.png', generatePixelArt],
+  ['flat.png', generateFlat],
+  ['checker.png', generateChecker],
+  ['sweep.png', generateSweep],
+  ['parrot.png', () => downloadCommons(COMMONS.parrot, 'parrot.png')],
+  ['forest.png', () => downloadCommons(COMMONS.forest, 'forest.png')],
+]
+
 // --- Run all ---
 console.log('Generating sample images...\n')
-await downloadPhoto()
-await generateGraphic()
-await generateGradient()
+if (needs('photo.jpg')) await downloadPhoto()
+if (needs('graphic.png')) await generateGraphic()
+if (needs('gradient.png')) await generateGradient()
+for (const [name, fn] of EXTRA) {
+  if (needs(name)) await fn()
+}
 console.log('\nDone!')

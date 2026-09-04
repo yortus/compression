@@ -19,6 +19,15 @@ import RlePalette from '../components/slides/RlePalette.vue'
 import RlePlanes from '../components/slides/RlePlanes.vue'
 import LossyVsLossless from '../components/slides/LossyVsLossless.vue'
 
+import TitleSlide from '../components/slides/TitleSlide.vue'
+import WhyCare from '../components/slides/WhyCare.vue'
+import InfoTheory from '../components/slides/InfoTheory.vue'
+import Timeline from '../components/slides/Timeline.vue'
+import Optimisation from '../components/slides/Optimisation.vue'
+import BrittleVsRobust from '../components/slides/BrittleVsRobust.vue'
+import Reframing from '../components/slides/Reframing.vue'
+import PointsSlide from '../components/slides/PointsSlide.vue'
+
 export const ACTS: Act[] = [
   { id: 'framing', label: 'Framing', title: 'Why compress anything?' },
   { id: 'simple', label: 'Simple', title: 'Start simple: run-length encoding' },
@@ -36,6 +45,52 @@ export const ACTS: Act[] = [
  * remaining slides to be filled in act by act.
  */
 export const SLIDES: SlideDef[] = [
+  {
+    id: 'title',
+    act: 'framing',
+    title: 'Compression',
+    subtitle: 'An interactive talk',
+    component: TitleSlide,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'why-care',
+    act: 'framing',
+    title: 'Why Bother',
+    subtitle: 'The numbers behind an ordinary photograph',
+    component: WhyCare,
+    tag: 'core',
+    controls: ['image', 'quality'],
+    fragments: 2,
+  },
+  {
+    id: 'info-theory',
+    act: 'framing',
+    title: 'The Floor',
+    subtitle: 'Shannon, 1948 — entropy as a hard limit',
+    component: InfoTheory,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'timeline',
+    act: 'framing',
+    title: 'Who Worked This Out',
+    subtitle: 'Two centuries of borrowed ideas',
+    component: Timeline,
+    tag: 'optional',
+    fragments: 2,
+  },
+  {
+    id: 'optimisation',
+    act: 'framing',
+    title: 'Compression as Optimisation',
+    subtitle: 'Smaller, faster, truer — pick two',
+    component: Optimisation,
+    tag: 'core',
+    fragments: 2,
+  },
   {
     id: 'source',
     act: 'framing',
@@ -191,6 +246,69 @@ export const SLIDES: SlideDef[] = [
     component: Step9Summary,
     tag: 'core',
     controls: ['image', 'quality', 'subsampling'],
+  },
+  {
+    id: 'wider-audio',
+    act: 'conclusions',
+    title: 'Sound',
+    subtitle: 'The same skeleton, a different sense',
+    component: PointsSlide,
+    tag: 'core',
+    fragments: 4,
+  },
+  {
+    id: 'wider-general',
+    act: 'conclusions',
+    title: 'Everything Else',
+    subtitle: 'Lossless data, with no perception to exploit',
+    component: PointsSlide,
+    tag: 'core',
+    fragments: 4,
+  },
+  {
+    id: 'modern',
+    act: 'conclusions',
+    title: 'After JPEG',
+    subtitle: 'Better parts, same pipeline',
+    component: PointsSlide,
+    tag: 'optional',
+    fragments: 4,
+  },
+  {
+    id: 'brittle-vs-robust',
+    act: 'conclusions',
+    title: 'Brittle and Robust',
+    subtitle: 'Why some schemes only work sometimes',
+    component: BrittleVsRobust,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'lossiness-subjective',
+    act: 'conclusions',
+    title: 'Lossy Is About People',
+    subtitle: 'Every codec contains a model of you',
+    component: PointsSlide,
+    tag: 'core',
+    fragments: 4,
+  },
+  {
+    id: 'reframing',
+    act: 'conclusions',
+    title: 'Reframing',
+    subtitle: 'What actually did the work',
+    component: Reframing,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'end',
+    act: 'conclusions',
+    title: 'Thank You',
+    subtitle: 'Links, credits and questions',
+    component: PointsSlide,
+    tag: 'core',
+    fragments: 4,
   },
 ]
 

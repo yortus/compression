@@ -121,7 +121,10 @@ export function createDeck() {
 }
 
 export type Deck = ReturnType<typeof createDeck>
-export const DECK_KEY = Symbol('deck') as InjectionKey<Deck>
+// Symbol.for, not Symbol: a plain symbol is recreated when Vite hot-reloads this
+// module, so an already-mounted DeckShell keeps providing under the old key and every
+// component mounted afterwards fails to inject. Only bites in dev, but confusingly.
+export const DECK_KEY = Symbol.for('compression.deck') as InjectionKey<Deck>
 
 export function useDeck(): Deck {
   const deck = inject(DECK_KEY)

@@ -106,6 +106,31 @@ export function reconstruct(
   return ycbcrToImageData(upsampled)
 }
 
+/**
+ * Estimated size of the whole encoded image, in bits.
+ *
+ * Huffman-codes a spread of blocks and scales up rather than extrapolating from a single
+ * block, which was giving figures that swung wildly depending on which block happened to
+ * be selected. Still an estimate — there is no real bitstream here, no DC differential
+ * coding and no standard tables — but a stable one, and the same one everywhere.
+ */
+export function estimateEncodedBits(cache: PipelineCache, sampleCount = 64): number {
+  let total = 0
+  for (const channel of [cache.quantizedBlocks.y, cache.quantizedBlocks.cb, cache.quantizedBlocks.cr]) {
+    const n = channel.blocks.length
+    if (n === 0) continue
+    const step = Math.max(1, Math.floor(n / sampleCount))
+    let bits = 0
+    let sampled = 0
+    for (let i = 0; i < n; i += step) {
+      bits += getBlockHuffman(channel.blocks[i]).totalBits
+      sampled++
+    }
+    total += (bits / sampled) * n
+  }
+  return Math.round(total)
+}
+
 // Per-block helpers for visualisation steps 6-8
 export function getBlockZigzag(block: Block): number[] {
   return zigzagScan(block)
