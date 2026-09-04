@@ -56,9 +56,12 @@ const primerPct = computed(() => (s.value ? Math.min(100 - payloadPct.value, (s.
   justify-content: center;
   align-items: flex-end;
   gap: 0.1rem;
-  padding: 0 0.8rem;
   font-size: 0.65rem;
   white-space: nowrap;
+  /* Never squeezed below its own content — that is what made it spill over the title.
+     The overflow guard means that if it ever is, it clips instead of spilling. */
+  min-width: max-content;
+  overflow: hidden;
 }
 
 .line {

@@ -56,7 +56,7 @@ onMounted(draw)
         </button>
       </div>
       <div class="canvas-wrap">
-        <canvas ref="canvasRef" />
+        <canvas ref="canvasRef" v-loupe />
       </div>
     </div>
     <template #notes>

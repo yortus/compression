@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted } from 'vue'
+import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
 import { createDeck, DECK_KEY } from './useDeck'
 import { createStats, STATS_KEY } from '../stats/useStats'
 import StatsHUD from '../stats/StatsHUD.vue'
 import ControlBar from './ControlBar.vue'
 import DeckNav from './DeckNav.vue'
+import Loupe from './Loupe.vue'
+import { proseFor } from '../content'
 
 /**
  * The one shell every slide lives in. It owns all the furniture — title, navigation,
@@ -18,6 +20,10 @@ const stats = createStats()
 provide(STATS_KEY, stats)
 
 const showHelp = ref(false)
+const showSpeakerNotes = ref(false)
+
+// Slide words live in src/content, so they can be rewritten without touching layout.
+const prose = computed(() => proseFor(deck.slide.value.id))
 
 function onKeydown(e: KeyboardEvent) {
   // Never hijack keys while someone is typing in a slide's own input.
@@ -44,10 +50,15 @@ function onKeydown(e: KeyboardEvent) {
     case 'l':
     case 'L':
       deck.learnMode.value = !deck.learnMode.value; break
+    case 'n':
+    case 'N':
+      showSpeakerNotes.value = !showSpeakerNotes.value; break
     case '?':
       showHelp.value = !showHelp.value; break
     case 'Escape':
-      showHelp.value = false; break
+      showHelp.value = false
+      showSpeakerNotes.value = false
+      break
   }
 }
 
@@ -71,9 +82,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <span class="subtitle">{{ deck.slide.value.subtitle }}</span>
       <!-- Stats live up here beside the title: always visible, and no extra chrome height. -->
       <StatsHUD />
-      <button v-if="deck.learnMode.value" class="mode" @click="deck.learnMode.value = false">learn mode</button>
-      <button class="help-btn" title="Keyboard shortcuts" @click="showHelp = !showHelp">?</button>
+      <div class="top-actions">
+        <button v-if="deck.learnMode.value" class="mode" @click="deck.learnMode.value = false">learn mode</button>
+        <button class="help-btn" title="Keyboard shortcuts" @click="showHelp = !showHelp">?</button>
+      </div>
     </header>
+
+    <!-- Always present, so the grid keeps four rows whether or not there is prose to show. -->
+    <div class="prose-band">
+      <p v-if="deck.learnMode.value && prose" class="prose learner">{{ prose.learner }}</p>
+      <p v-else-if="showSpeakerNotes && prose" class="prose speaker">{{ prose.speaker }}</p>
+    </div>
 
     <main class="slide-area">
       <component :is="deck.slide.value.component" :key="deck.slide.value.id" />
@@ -84,6 +103,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     </div>
     </div>
 
+    <!-- Shared zoom loupe: any canvas marked v-loupe drives it. -->
+    <Loupe />
+
     <div v-if="showHelp" class="help-overlay" @click="showHelp = false">
       <div class="help-content" @click.stop>
         <h2>Keyboard</h2>
@@ -92,7 +114,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <dt>← ↑</dt><dd>Back</dd>
           <dt>PgUp / PgDn</dt><dd>Skip a whole slide</dd>
           <dt>Home / End</dt><dd>First / last slide</dd>
-          <dt>L</dt><dd>Learn mode — reveal every build step</dd>
+          <dt>L</dt><dd>Learn mode — reveal every build step, show the full explanation</dd>
+          <dt>N</dt><dd>Speaker note for this slide</dd>
           <dt>?</dt><dd>This help</dd>
           <dt>Esc</dt><dd>Close</dd>
         </dl>
@@ -139,18 +162,51 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .main {
   min-width: 0;
   display: grid;
-  grid-template-rows: var(--chrome-top) 1fr var(--chrome-row);
+  grid-template-rows: var(--chrome-top) auto 1fr var(--chrome-row);
   overflow: hidden;
 }
 
+/* Prose band under the title: the presenter's cue, or the paragraph that stands in
+   for the presenter once the deck is published. */
+.prose {
+  padding: 0.5rem 1.25rem 0.1rem;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  max-width: 62rem;
+}
+
+.prose.learner {
+  color: var(--text-secondary);
+}
+
+.prose.speaker {
+  color: var(--warning);
+  font-style: italic;
+}
+
+/*
+ * Explicit columns rather than a flex row. Under a flex row a shrinkable item can be
+ * squeezed narrower than its own text, and the text then spills over its neighbour —
+ * which is how the stats ended up sitting on top of the subtitle. In a grid each item
+ * owns a column, so the worst case is truncation, never overlap.
+ *
+ * act | title | subtitle (absorbs all slack) | stats | buttons
+ */
 .chrome-top {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) max-content max-content;
+  align-items: center;
   gap: 0.75rem;
   padding: 0 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
   overflow: hidden;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .act {
@@ -166,18 +222,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   font-weight: 700;
   letter-spacing: -0.02em;
   white-space: nowrap;
-  flex: none;
 }
 
-.chrome-top :deep(.stats-hud) {
-  align-self: center;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-/* The subtitle absorbs all the slack and truncates first, so the stats never move. */
+/* The subtitle owns the flexible column, so it is the only thing that truncates. */
 .subtitle {
-  flex: 1 1 auto;
   min-width: 0;
   font-size: 0.68rem;
   color: var(--text-secondary);
@@ -187,21 +235,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .mode {
-  flex: none;
   font-size: 0.55rem;
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
   color: var(--accent);
   border-color: var(--accent-dim);
-  align-self: center;
 }
 
 .help-btn {
-  flex: none;
   font-size: 0.65rem;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
-  align-self: center;
 }
 
 .slide-area {
@@ -260,5 +304,33 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .help-content dd {
   margin: 0;
   color: var(--text-secondary);
+}
+/*
+ * Below these widths there is genuinely not room for everything, so drop content in
+ * order of importance rather than letting it truncate to meaningless fragments. The
+ * compression numbers are the last thing to go — they are the point of the deck.
+ */
+@media (max-width: 1400px) {
+  .subtitle {
+    display: none;
+  }
+
+  /* The act name is the cheapest thing to drop — the ToC rail already shows which
+     act is current, and it is by far the widest item in the bar. */
+  .act {
+    display: none;
+  }
+}
+
+/* Narrower than the deck was designed for: scale the bar's type down rather than
+   start dropping the numbers or the help button off the end. */
+@media (max-width: 1150px) {
+  .chrome-top h1 {
+    font-size: 0.9rem;
+  }
+
+  .chrome-top :deep(.stats-hud) {
+    font-size: 0.58rem;
+  }
 }
 </style>

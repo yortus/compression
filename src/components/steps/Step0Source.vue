@@ -24,7 +24,7 @@ onMounted(draw)
   <SlideLayout>
     <div class="source-step">
       <div class="canvas-wrap">
-        <canvas ref="canvasRef" />
+        <canvas ref="canvasRef" v-loupe />
         <p v-if="!pipeline.sourceImageData.value" class="placeholder">
           Choose an image or select a sample above
         </p>

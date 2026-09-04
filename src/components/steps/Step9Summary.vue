@@ -13,15 +13,6 @@ const viewMode = ref<ViewMode>('side-by-side')
 const origCanvas = ref<HTMLCanvasElement>()
 const reconCanvas = ref<HTMLCanvasElement>()
 const diffCanvas = ref<HTMLCanvasElement>()
-const loupeCanvas = ref<HTMLCanvasElement>()
-
-const loupeVisible = ref(false)
-const loupeX = ref(0)
-const loupeY = ref(0)
-
-const LOUPE_SIZE = 160
-const LOUPE_ZOOM = 8
-const LOUPE_SRC = LOUPE_SIZE / LOUPE_ZOOM
 
 const compressionRatio = computed(() => {
   const src = pipeline.sourceImageData.value
@@ -104,61 +95,6 @@ function drawAll() {
   if (viewMode.value === 'diff') drawDiff()
 }
 
-function canvasPixelFromEvent(e: MouseEvent, canvas: HTMLCanvasElement): { px: number; py: number } {
-  const rect = canvas.getBoundingClientRect()
-  const scaleX = canvas.width / rect.width
-  const scaleY = canvas.height / rect.height
-  return {
-    px: (e.clientX - rect.left) * scaleX,
-    py: (e.clientY - rect.top) * scaleY,
-  }
-}
-
-function onCanvasMove(e: MouseEvent, canvas: HTMLCanvasElement | undefined) {
-  if (!canvas) return
-  const { px, py } = canvasPixelFromEvent(e, canvas)
-  loupeVisible.value = true
-  loupeX.value = e.clientX
-  loupeY.value = e.clientY
-  drawLoupe(canvas, px, py)
-}
-
-function onCanvasLeave() {
-  loupeVisible.value = false
-}
-
-function drawLoupe(source: HTMLCanvasElement, px: number, py: number) {
-  const lc = loupeCanvas.value
-  if (!lc) return
-  lc.width = LOUPE_SIZE
-  lc.height = LOUPE_SIZE
-  const ctx = lc.getContext('2d')!
-  ctx.imageSmoothingEnabled = false
-  const half = LOUPE_SRC / 2
-  ctx.drawImage(
-    source,
-    Math.round(px - half), Math.round(py - half), LOUPE_SRC, LOUPE_SRC,
-    0, 0, LOUPE_SIZE, LOUPE_SIZE,
-  )
-  // Crosshair
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(LOUPE_SIZE / 2, 0)
-  ctx.lineTo(LOUPE_SIZE / 2, LOUPE_SIZE)
-  ctx.moveTo(0, LOUPE_SIZE / 2)
-  ctx.lineTo(LOUPE_SIZE, LOUPE_SIZE / 2)
-  ctx.stroke()
-}
-
-const loupeStyle = computed(() => {
-  const offset = 20
-  return {
-    left: `${loupeX.value + offset}px`,
-    top: `${loupeY.value - LOUPE_SIZE / 2}px`,
-  }
-})
-
 watch([() => pipeline.sourceImageData.value, () => pipeline.reconstructed.value, viewMode], drawAll)
 onMounted(drawAll)
 </script>
@@ -175,19 +111,13 @@ onMounted(drawAll)
         <div class="canvas-col">
           <h3>Original</h3>
           <div class="canvas-wrap">
-            <canvas ref="origCanvas"
-              @mousemove="onCanvasMove($event, origCanvas)"
-              @mouseleave="onCanvasLeave"
-            />
+            <canvas ref="origCanvas" v-loupe />
           </div>
         </div>
         <div class="canvas-col">
           <h3>Reconstructed (Q={{ pipeline.quality.value }})</h3>
           <div class="canvas-wrap">
-            <canvas ref="reconCanvas"
-              @mousemove="onCanvasMove($event, reconCanvas)"
-              @mouseleave="onCanvasLeave"
-            />
+            <canvas ref="reconCanvas" v-loupe />
           </div>
         </div>
       </div>
@@ -196,19 +126,11 @@ onMounted(drawAll)
         <div class="canvas-col">
           <h3>Difference (×4 amplified)</h3>
           <div class="canvas-wrap">
-            <canvas ref="diffCanvas"
-              @mousemove="onCanvasMove($event, diffCanvas)"
-              @mouseleave="onCanvasLeave"
-            />
+            <canvas ref="diffCanvas" v-loupe />
           </div>
         </div>
       </div>
 
-    </div>
-
-    <!-- Loupe follows cursor, rendered outside the layout flow -->
-    <div v-if="loupeVisible" class="loupe" :style="loupeStyle">
-      <canvas ref="loupeCanvas" />
     </div>
 
     <template #notes>
@@ -317,21 +239,4 @@ onMounted(drawAll)
   color: var(--positive);
 }
 
-.loupe {
-  position: fixed;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 500;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-}
-
-.loupe canvas {
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-}
 </style>

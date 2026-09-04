@@ -15,17 +15,10 @@ const buildCount = ref(64)
 
 const gridCanvas = ref<HTMLCanvasElement>()
 const detailCanvas = ref<HTMLCanvasElement>()
-const loupeCanvas = ref<HTMLCanvasElement>()
 
 const GRID_SIZE = 360
 const CELL = GRID_SIZE / 8
 
-const loupeVisible = ref(false)
-const loupeX = ref(0)
-const loupeY = ref(0)
-const LOUPE_SIZE = 160
-const LOUPE_ZOOM = 8
-const LOUPE_SRC = LOUPE_SIZE / LOUPE_ZOOM
 
 const blockCount = computed(() => {
   const b = pipeline.allBlocks.value
@@ -194,36 +187,6 @@ function onGridClick(e: MouseEvent) {
   }
 }
 
-function onGridMove(e: MouseEvent) {
-  const canvas = gridCanvas.value
-  if (!canvas) return
-  const rect = canvas.getBoundingClientRect()
-  const px = (e.clientX - rect.left) * (canvas.width / rect.width)
-  const py = (e.clientY - rect.top) * (canvas.height / rect.height)
-  loupeVisible.value = true
-  loupeX.value = e.clientX
-  loupeY.value = e.clientY
-
-  const lc = loupeCanvas.value
-  if (!lc) return
-  lc.width = LOUPE_SIZE
-  lc.height = LOUPE_SIZE
-  const ctx = lc.getContext('2d')!
-  ctx.imageSmoothingEnabled = false
-  const half = LOUPE_SRC / 2
-  ctx.drawImage(canvas, Math.round(px - half), Math.round(py - half), LOUPE_SRC, LOUPE_SRC, 0, 0, LOUPE_SIZE, LOUPE_SIZE)
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(LOUPE_SIZE / 2, 0); ctx.lineTo(LOUPE_SIZE / 2, LOUPE_SIZE)
-  ctx.moveTo(0, LOUPE_SIZE / 2); ctx.lineTo(LOUPE_SIZE, LOUPE_SIZE / 2)
-  ctx.stroke()
-}
-
-function onGridLeave() {
-  loupeVisible.value = false
-}
-
 watch([
   () => pipeline.allBlocks.value,
   () => pipeline.selectedBlockIndex.value,
@@ -243,12 +206,7 @@ onMounted(() => { drawGrid(); drawDetail() })
       <div class="grid-panel">
         <p class="hint">Click a block to inspect it</p>
         <div class="canvas-wrap">
-          <canvas ref="gridCanvas"
-            @click="onGridClick"
-            @mousemove="onGridMove"
-            @mouseleave="onGridLeave"
-            style="cursor:crosshair"
-          />
+          <canvas ref="gridCanvas" v-loupe @click="onGridClick" />
         </div>
         <p class="meta">{{ blocksPerRow }} × {{ Math.ceil(blockCount / blocksPerRow) }} blocks ({{ blockCount }} total)</p>
       </div>
@@ -279,10 +237,6 @@ onMounted(() => { drawGrid(); drawDetail() })
         </div>
       </div>
     </div>
-    <div v-if="loupeVisible" class="loupe" :style="{ left: loupeX + 20 + 'px', top: loupeY - LOUPE_SIZE / 2 + 'px' }">
-      <canvas ref="loupeCanvas" />
-    </div>
-
     <template #notes>
       <ExpandablePanel label="How it works">
         <p>Each 8×8 block goes through the full JPEG pipeline independently: DCT → Quantize → Zigzag scan → RLE → Huffman.</p>
@@ -330,24 +284,6 @@ onMounted(() => { drawGrid(); drawDetail() })
 .meta {
   font-size: 0.85rem;
   color: var(--text-secondary);
-}
-
-.loupe {
-  position: fixed;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 500;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-}
-
-.loupe canvas {
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
 }
 
 .detail-panel {

@@ -11,6 +11,14 @@ import Step7RLE from '../components/steps/Step7RLE.vue'
 import Step8Huffman from '../components/steps/Step8Huffman.vue'
 import Step9Summary from '../components/steps/Step9Summary.vue'
 
+import RleText from '../components/slides/RleText.vue'
+import RleTwoWay from '../components/slides/RleTwoWay.vue'
+import RlePrimer from '../components/slides/RlePrimer.vue'
+import RleBitmap from '../components/slides/RleBitmap.vue'
+import RlePalette from '../components/slides/RlePalette.vue'
+import RlePlanes from '../components/slides/RlePlanes.vue'
+import LossyVsLossless from '../components/slides/LossyVsLossless.vue'
+
 export const ACTS: Act[] = [
   { id: 'framing', label: 'Framing', title: 'Why compress anything?' },
   { id: 'simple', label: 'Simple', title: 'Start simple: run-length encoding' },
@@ -36,6 +44,72 @@ export const SLIDES: SlideDef[] = [
     component: Step0Source,
     tag: 'optional',
     controls: ['image'],
+  },
+  {
+    id: 'rle-text',
+    act: 'simple',
+    title: 'Run-Length Encoding',
+    subtitle: 'The simplest thing that could possibly work',
+    component: RleText,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'rle-two-way',
+    act: 'simple',
+    title: 'Both Directions',
+    subtitle: 'Encode is only half of a codec',
+    component: RleTwoWay,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'rle-primer',
+    act: 'simple',
+    title: 'The Shared Primer',
+    subtitle: 'What both sides must already agree on',
+    component: RlePrimer,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
+    id: 'rle-bitmap',
+    act: 'simple',
+    title: 'RLE on a Bitmap',
+    subtitle: 'The same encoder, pointed at pixels',
+    component: RleBitmap,
+    tag: 'core',
+    controls: ['image'],
+    fragments: 2,
+  },
+  {
+    id: 'rle-palette',
+    act: 'simple',
+    title: 'Palettise, Then RLE',
+    subtitle: 'Pixels become indices',
+    component: RlePalette,
+    tag: 'core',
+    controls: ['image'],
+    fragments: 2,
+  },
+  {
+    id: 'rle-planes',
+    act: 'simple',
+    title: 'Colour Planes',
+    subtitle: 'Same bytes, different order',
+    component: RlePlanes,
+    tag: 'core',
+    controls: ['image'],
+    fragments: 2,
+  },
+  {
+    id: 'lossy-vs-lossless',
+    act: 'simple',
+    title: 'Lossy and Lossless',
+    subtitle: 'Where the information goes',
+    component: LossyVsLossless,
+    tag: 'core',
+    fragments: 2,
   },
   {
     id: 'ycbcr',

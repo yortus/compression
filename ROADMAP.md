@@ -19,6 +19,12 @@ _reframing_ the data, not from packing bits more cleverly.** RLE on raw RGB bare
 palettised or plane-split data works well. The DCT wins because it changes what the numbers mean.
 Zigzag wins because it changes their order. Each act should land that beat.
 
+A second through-line, added after seeing Act 1's numbers: **techniques differ enormously in how
+much they care what you feed them.** RLE is spectacular on one image (10.6:1) and worse than
+useless on the next (+98%); entropy coding and transform coding are almost never a disaster. That
+spread is not luck, and the deck owes the audience the reason — it is developed on the slides
+themselves and paid off in `brittle-vs-robust` in Act 6.
+
 Standing constraints from the draft, to be honoured everywhere:
 
 - **Always show the ratio.** From the first RLE demo onward, every slide with data on it reports
@@ -31,7 +37,9 @@ Standing constraints from the draft, to be honoured everywhere:
   enough" is a fact about human wetware, not about the data.
 - **The chrome is always there.** One consistent layout across every slide, with navigation, the
   key controls (jump forward/back, change the image, adjust settings) and the compression stats
-  visible and usable *everywhere* — never buried inside whichever slide happens to own them.
+  visible and usable *everywhere* — never buried inside whichever slide happens to own them. The
+  zoom loupe belongs to this set: any slide showing an image gets it, from one shared implementation
+  (`v-loupe` on the canvas), never a per-slide reimplementation.
 
 ## 2. Design principles
 
@@ -46,6 +54,9 @@ These exist to settle recurring decisions without re-litigating them:
   the words are data, so they can be revised without touching code and reused by learn mode.
 - **Fail-visible demos are the point.** The RGB-RLE slide that *expands* the file is more valuable
   than any slide that works. Do not quietly fix it.
+- **Report the spread, not just the best case.** A technique's numbers on one image say little; the
+  interesting fact is usually how far they move across the three samples. Where a slide can show
+  that range cheaply, it should.
 - **Trimmable.** Slides are tagged `core` or `optional`. A dry run that overruns is fixed by
   flipping tags, never by deleting work.
 - **One shell owns the furniture.** Navigation, global controls and stats are rendered once by the
@@ -79,6 +90,12 @@ else is new. Ids are also the deep-link fragments (`#/rle-palette`).
 | `rle-palette` | Palettise, then RLE — big win; palette table counted as overhead | core |
 | `rle-planes` | Split into R/G/B planes, RLE each — another win from pure reframing | core |
 | `lossy-vs-lossless` | Name the two families; locate where the loss actually lives | core |
+
+The three sample images are not decoration in this act — they are the experiment. The same encoder
+run over Photo, Graphic and Gradient spans 0.50:1 to 10.6:1, and `rle-bitmap` and `rle-planes`
+should invite the audience to switch between them and watch the verdict text flip. That spread is
+the first evidence for the brittleness argument the conclusions pick up, and `lossy-vs-lossless`
+should record not just what each technique achieved but how much it varied.
 
 ### Act 2 — Colour space (mostly reuse)
 
@@ -127,7 +144,7 @@ nearly intact, do the same to luma and it is gone. That A/B is what earns the su
 | `dct-2d` | 2-D DCT on the selected block | core; reuse `Step4DCT` |
 | `basis-64` | The 64 basis images, animated build-up, click to add one at a time | core; extend `Step4DCT`'s `drawBasis` |
 | `quantisation` | Psychovisual again: drop high frequencies, watch quality and bits move together | core; reuse `Step5Quantization` |
-| `rle-on-coeffs` | RLE over coefficients in *raster* order — a modest win | core |
+| `rle-on-coeffs` | RLE over coefficients in *raster* order — a modest win. Callback: RLE failed on raw pixels, so JPEG **manufactures** the runs rather than hoping for them | core |
 | `zigzag` | The reorder insight; run-length histogram raster vs zigzag, side by side | core; reuse `Step6Zigzag` plus new comparison |
 
 ### Act 5 — Putting it together: JPEG (reuse)
@@ -145,9 +162,49 @@ nearly intact, do the same to luma and it is gone. That A/B is what earns the su
 | `wider-audio` | MDCT plus psychoacoustic masking: same skeleton, different sense | core |
 | `wider-general` | gzip/LZ77, BWT, zstd/ANS: "decorrelate, then entropy-code" | core |
 | `modern` | WebP / AVIF / HEIC / JPEG XL; stills as single video frames | optional |
+| `brittle-vs-robust` | Why some schemes only work sometimes and others almost always do | core; new |
 | `lossiness-subjective` | Lossy is a claim about people, not about data | core |
 | `reframing` | The thesis, paid off; the life-lesson beat | core |
 | `end` | Links, credits, pointer to `docs/compression-techniques-survey.md` | core |
+
+**`brittle-vs-robust` — the answer to "why is this so?"** The audience will have watched one encoder
+score 10.6:1 and 0.50:1 on two images of the same size. Five parts, in this order:
+
+1. **Expansion is compulsory, not a defect.** There are fewer short strings than long ones, so any
+   lossless codec that shortens some inputs *must* lengthen others — you cannot win on all of them.
+   Every scheme is therefore a bet on which inputs it will actually meet. RLE's +98% on a photo is
+   not RLE being bad; it is RLE paying out on a bet it lost. Worth stating plainly, because it
+   reframes "this compressor failed" as "this compressor was pointed at the wrong data".
+
+2. **What breaks the bet is usually noise, not subject matter.** RLE needs bytes to be *exactly*
+   equal. Neighbouring pixels in a photograph are strongly correlated but almost never identical —
+   one count of sensor noise ends a run. Synthetic graphics have genuine exact repetition, which is
+   why they behave completely differently. So the sensitivity is to exactness, and the techniques
+   that survive noise are the ones modelling *approximate* similarity: predict, then code the small
+   residual.
+
+3. **Brittle schemes hard-code their model; robust ones learn it.** RLE's model is fixed and
+   parameterless — nothing to transmit, and no ability to adapt. Huffman measures the actual
+   symbol distribution and ships a code table. LZ77 builds its dictionary out of the data itself.
+   Adaptive arithmetic and ANS update their model as they go. Applicability is bought with primer
+   cost — the same trade `rle-primer` introduced in Act 1, seen from the other end.
+
+4. **Robust schemes bound their downside deliberately.** Escape-RLE passes literals through
+   untouched, so its worst case is a small overhead rather than 2×. Deflate picks per block between
+   stored, static and dynamic Huffman — the "stored" mode caps the loss at a few bits. "Never much
+   worse than raw" is an engineering decision, not a happy accident. Even so, universality has
+   limits: gzip a JPEG and it gets *bigger*, because the data has no redundancy left to find.
+
+5. **JPEG's answer, and the punchline: do not rely on the property — manufacture it.** JPEG does not
+   apply RLE to an image and hope for runs. It transforms, quantises (which drives most
+   high-frequency coefficients to zero) and zigzag-scans (which gathers those zeros together), so
+   that long runs are *guaranteed* to exist before RLE is asked to find them. The brittle technique
+   is kept and the input is engineered to suit it. That is the reframing thesis one level up, and it
+   is why this slide belongs next to `reframing`.
+
+A visual worth building if there is time: the Act 1 scoreboard replayed as a grouped bar chart, one
+group per technique and one bar per sample image, so brittleness reads as *spread* — tall bars for
+RLE, flat ones for the transform pipeline.
 
 ## 4. Architecture changes
 
@@ -227,11 +284,28 @@ chroma mode from the reconstruction slide (which does not own that control) re-r
 Three slides publish stats so far — `chroma-subsample`, `huffman-codes` and `jpeg-result`. The
 fragment mechanism is in place but no slide declares a build yet; Act 1 will be the first to use it.
 
-### P2 — Act 1, RLE
+### P2 — Act 1, RLE ✅ done
 The whole simple-techniques act, plus the generic codecs it needs. This is the largest new build and
 it is what proves the stats layer is designed right.
 **Done when:** all seven Act 1 slides run, the RGB-RLE slide visibly expands its input, the palette
 and plane variants show their wins, and every stat includes primer overhead.
+
+*Measured across the three samples* (raw 768 KB each), which is what the slides now say out loud:
+
+| | interleaved RLE | R/G/B planes | palette 16 + RLE |
+|---|---|---|---|
+| Photo | 0.51:1 (+98%) | 0.68:1 (+47%) | 23.5:1 |
+| Graphic | 1.05:1 | 10.6:1 | 53.2:1 |
+| Gradient | 0.50:1 (+99%) | 1.43:1 | 154:1 |
+
+Reordering into planes always removes runs (26% of them even on the photo) but only crosses into an
+actual win on the graphic and gradient — the slide says so rather than claiming a win the numbers do
+not support. `src/content/` landed here too, earlier than planned, along with learn-mode prose and
+an `N` speaker-note toggle; the fragment mechanism from P1 is now in use, two per Act 1 slide.
+
+The `vitest` round-trip suite from §6 landed with this phase: `npm run test` (28 cases in
+`src/engine/codecs/roundtrip.test.ts`), covering both RLE forms, the palette and the plane split.
+`vue-tsc` type-checks the test file during `npm run build`, so a broken test file fails the build.
 
 ### P3 — Acts 0 and 6, framing and conclusions
 Cheap relative to their value: mostly prose, the timeline data file, and the entropy widget. This is
@@ -258,8 +332,9 @@ that appear or vanish, headings that change size, and stats that blank out betwe
 
 - **Round-trip correctness matters more than usual.** The deck literally claims every transform is
   invertible; a silent engine regression becomes a wrong claim in front of a room. This is the one
-  place tests earn their keep in a vibe-coded repo — a handful of `vitest` round-trip cases over
-  `src/engine/codecs/` (encode, decode, deep-equal) is enough. Skip broader test infrastructure.
+  place tests earn their keep in a vibe-coded repo — `npm run test` covers exactly that and nothing
+  else. Keep it that way: add a case when a new codec appears, and resist growing it into a general
+  test suite for slide components.
 - **Scope.** ~35 slides is a lot for one talk. The `core`/`optional` tagging is the release valve;
   use it rather than cutting phases short.
 - **Chrome versus canvas.** Persistent navigation, controls and stats compete for space with the
