@@ -1,6 +1,6 @@
 import { ref, shallowRef, computed, watch, type InjectionKey } from 'vue'
-import type { SubsamplingMode, AllBlocks, YcbcrData, SubsampledData, Block, RLEPair, HuffmanResult } from '../engine/types'
-import { runFullPipeline, requantize, getBlockZigzag, getBlockRLE, getBlockHuffman, type PipelineCache } from '../engine/pipeline'
+import type { SubsamplingMode, AllBlocks, YcbcrData, SubsampledData, Block, RLEPair, HuffmanResult } from '../engine/jpeg/types'
+import { runFullPipeline, requantize, getBlockZigzag, getBlockRLE, getBlockHuffman, type PipelineCache } from '../engine/jpeg/pipeline'
 
 export function createJpegPipeline() {
   const sourceImageData = shallowRef<ImageData | null>(null)

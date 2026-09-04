@@ -1,0 +1,130 @@
+import { ref, computed, watch, inject, type InjectionKey } from 'vue'
+import { SLIDES, ACTS, slideIndexById, actOf } from './slides'
+import type { ControlId } from './types'
+
+/**
+ * Deck navigation: which slide, which fragment within it, and how that maps to the URL.
+ *
+ * Two audiences share this. A presenter steps through fragments with the arrow keys;
+ * someone reading it later lands on a deep link with every fragment already revealed
+ * (learn mode). Both must be able to jump around freely.
+ */
+export function createDeck() {
+  const index = ref(0)
+  const fragment = ref(0)
+  const learnMode = ref(false)
+
+  const slide = computed(() => SLIDES[index.value])
+  const act = computed(() => actOf(slide.value))
+  const fragmentCount = computed(() => slide.value.fragments ?? 1)
+
+  /** In learn mode nothing is held back — there is no presenter to reveal it. */
+  const revealed = computed(() => (learnMode.value ? fragmentCount.value - 1 : fragment.value))
+  function isRevealed(n: number) {
+    return n <= revealed.value
+  }
+
+  function controlEnabled(id: ControlId) {
+    return slide.value.controls?.includes(id) ?? false
+  }
+
+  function goTo(i: number, frag = 0) {
+    const clamped = Math.max(0, Math.min(SLIDES.length - 1, i))
+    if (clamped !== index.value) {
+      index.value = clamped
+      fragment.value = frag
+    } else {
+      fragment.value = Math.max(0, Math.min((SLIDES[clamped].fragments ?? 1) - 1, frag))
+    }
+  }
+
+  function goToId(id: string, frag = 0) {
+    const i = slideIndexById(id)
+    if (i >= 0) goTo(i, frag)
+  }
+
+  /** Advance a fragment if the slide has one left, otherwise move to the next slide. */
+  function next() {
+    if (!learnMode.value && fragment.value < fragmentCount.value - 1) fragment.value++
+    else goTo(index.value + 1)
+  }
+
+  /** Step back through fragments; landing on a previous slide shows it fully built. */
+  function prev() {
+    if (!learnMode.value && fragment.value > 0) fragment.value--
+    else if (index.value > 0) {
+      const target = index.value - 1
+      goTo(target, (SLIDES[target].fragments ?? 1) - 1)
+    }
+  }
+
+  function nextSlide() {
+    goTo(index.value + 1)
+  }
+  function prevSlide() {
+    goTo(index.value - 1, 0)
+  }
+
+  // --- URL sync: #/slide-id or #/slide-id/2 ---------------------------------
+  let suppressHashWatch = false
+
+  function readHash() {
+    const m = /^#\/([\w-]+)(?:\/(\d+))?/.exec(location.hash)
+    if (!m) return false
+    const i = slideIndexById(m[1])
+    if (i < 0) return false
+    index.value = i
+    fragment.value = m[2] ? Number(m[2]) : 0
+    return true
+  }
+
+  function writeHash() {
+    const frag = fragment.value > 0 ? `/${fragment.value}` : ''
+    const next = `#/${slide.value.id}${frag}`
+    if (location.hash === next) return
+    suppressHashWatch = true
+    location.hash = next
+    // hashchange fires asynchronously; release the guard after it has been delivered.
+    setTimeout(() => { suppressHashWatch = false }, 0)
+  }
+
+  function start() {
+    if (new URLSearchParams(location.search).get('mode') === 'learn') learnMode.value = true
+    readHash()
+    writeHash()
+    window.addEventListener('hashchange', () => {
+      if (suppressHashWatch) return
+      readHash()
+    })
+    watch([index, fragment], writeHash)
+  }
+
+  return {
+    index,
+    fragment,
+    learnMode,
+    slide,
+    act,
+    slides: SLIDES,
+    acts: ACTS,
+    fragmentCount,
+    isRevealed,
+    controlEnabled,
+    goTo,
+    goToId,
+    next,
+    prev,
+    nextSlide,
+    prevSlide,
+    start,
+  }
+}
+
+export type Deck = ReturnType<typeof createDeck>
+export const DECK_KEY = Symbol('deck') as InjectionKey<Deck>
+
+export function useDeck(): Deck {
+  const deck = inject(DECK_KEY)
+  if (!deck) throw new Error('useDeck() called outside a DeckShell')
+  return deck
+}

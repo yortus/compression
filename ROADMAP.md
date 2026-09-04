@@ -159,9 +159,9 @@ not stretch to this. Five new pieces, all of which should land before bulk conte
 single source of deck order. `useDeck.ts` owns the current slide and *fragment* index, next/prev
 that advances fragments before slides, `goToId`, and hash-route sync (`#/rle-palette`,
 `#/rle-palette/2`) so links are deep and the SPA works on static hosting. A `<Fragment>` wrapper
-gives progressive reveal within a slide. `ProgressBar.vue` becomes act-grouped and reads the
-registry — note that it currently hardcodes `STEP_LABELS` as a parallel array to `App.vue`'s
-`steps`, which is already a latent desync bug and should die with this change.
+gives progressive reveal within a slide. Navigation is a table of contents down the left edge, listing every slide title
+grouped by act and scrolling with the wheel — it reads the registry, replacing `ProgressBar.vue`,
+which hardcoded `STEP_LABELS` as a parallel array to `App.vue`'s `steps`.
 
 **`src/deck/DeckShell.vue` — persistent chrome.**
 One shell wraps every slide and owns four fixed regions: the act/slide navigation, a global control
@@ -179,7 +179,7 @@ and `Step9Summary` with three different markups; and subsampling can only be tou
 changing an input anywhere is reflected everywhere.
 
 Navigation must support both jumping and stepping: arrow keys through fragments and slides, the
-act-grouped bar for direct jumps, and deep links by id. Assume a presenter mid-talk will want to
+ToC rail for direct jumps to any slide, and deep links by id. Assume a presenter mid-talk will want to
 jump back three slides to re-answer a question and then return — make that one click, not nine.
 
 **`src/stats/` — the always-on ratio.**
@@ -214,13 +214,18 @@ synchronous on the main thread.
 
 Ordered so the deck is presentable end to end as early as possible, then deepened.
 
-### P1 — Foundations
+### P1 — Foundations ✅ done
 Deck framework, `DeckShell` with its persistent chrome, stats layer, codec interface, the
-`src/engine/jpeg/` move, act-grouped navigation. The existing ten slides are ported onto the shell —
+`src/engine/jpeg/` move, left-hand ToC rail. The existing ten slides are ported onto the shell —
 losing their bespoke layouts and their duplicated quality sliders — and keep working throughout.
 **Done when:** every current slide is reachable by id and hash link, arrow keys step fragments then
 slides, at least one slide publishes a `StatSample` that renders in the HUD, and image, quality and
 subsampling can all be changed from any slide that uses them without the controls moving.
+
+*Verified in the browser:* arrow/Home/End/L navigation, hash sync in both directions, and switching
+chroma mode from the reconstruction slide (which does not own that control) re-running the pipeline.
+Three slides publish stats so far — `chroma-subsample`, `huffman-codes` and `jpeg-result`. The
+fragment mechanism is in place but no slide declares a build yet; Act 1 will be the first to use it.
 
 ### P2 — Act 1, RLE
 The whole simple-techniques act, plus the generic codecs it needs. This is the largest new build and

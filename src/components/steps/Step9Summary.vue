@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
+import { useStat } from '../../stats/useStats'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -38,6 +39,19 @@ const compressionRatio = computed(() => {
     estimatedBytes,
     ratio: (rawBytes / estimatedBytes).toFixed(1),
     percent: Math.round((1 - estimatedBytes / rawBytes) * 100),
+  }
+})
+
+useStat('jpeg-result', () => {
+  const r = compressionRatio.value
+  if (!r) return null
+  return {
+    label: 'JPEG · whole image',
+    rawBits: r.rawBytes * 8,
+    encodedBits: r.estimatedBytes * 8,
+    overheadBits: 0,
+    lossy: true,
+    note: `estimated · Q=${pipeline.quality.value}`,
   }
 })
 
@@ -150,13 +164,9 @@ onMounted(drawAll)
 </script>
 
 <template>
-  <StepShell title="Reconstruction" subtitle="Putting it back together">
+  <SlideLayout>
     <div class="summary-step">
       <div class="controls">
-        <label>
-          Quality: {{ pipeline.quality.value }}
-          <input type="range" min="1" max="100" v-model.number="pipeline.quality.value" />
-        </label>
         <button :class="{ active: viewMode === 'side-by-side' }" @click="viewMode = 'side-by-side'">Side by Side</button>
         <button :class="{ active: viewMode === 'diff' }" @click="viewMode = 'diff'">Diff View</button>
       </div>
@@ -194,20 +204,6 @@ onMounted(drawAll)
         </div>
       </div>
 
-      <div v-if="compressionRatio" class="stats">
-        <div class="stat">
-          <span class="label">Raw size</span>
-          <span class="value">{{ (compressionRatio.rawBytes / 1024).toFixed(0) }} KB</span>
-        </div>
-        <div class="stat">
-          <span class="label">Estimated compressed</span>
-          <span class="value">{{ (compressionRatio.estimatedBytes / 1024).toFixed(0) }} KB</span>
-        </div>
-        <div class="stat">
-          <span class="label">Ratio</span>
-          <span class="value accent">{{ compressionRatio.ratio }}:1 ({{ compressionRatio.percent }}% smaller)</span>
-        </div>
-      </div>
     </div>
 
     <!-- Loupe follows cursor, rendered outside the layout flow -->
@@ -215,13 +211,13 @@ onMounted(drawAll)
       <canvas ref="loupeCanvas" />
     </div>
 
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="Full pipeline summary">
         <p>Decode reverses the pipeline: dequantize → inverse DCT → merge blocks → upsample chroma → YCbCr → RGB.</p>
         <p style="margin-top:0.5rem">The only information lost is in the quantization step. Everything else is reversible.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

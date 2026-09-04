@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 
@@ -41,7 +41,7 @@ function isHighlighted(zigzagIdx: number): boolean {
 </script>
 
 <template>
-  <StepShell title="Run-Length Encoding" subtitle="Compressing zero runs">
+  <SlideLayout>
     <div class="rle-step">
       <div class="section">
         <h3>Zigzag sequence (64 values)</h3>
@@ -79,13 +79,13 @@ function isHighlighted(zigzagIdx: number): boolean {
         <span class="savings">{{ Math.round((1 - rle.length / zigzag.length) * 100) }}% reduction</span>
       </div>
     </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>JPEG's RLE encodes each non-zero AC coefficient as a pair: <strong>(skip, value)</strong> where skip = number of preceding zeros.</p>
         <p style="margin-top:0.5rem">The special <strong>EOB</strong> (End of Block) symbol means "all remaining values are zero" — a very efficient shorthand for the long zero tail.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { channelToImageData } from '../../engine/colorspace'
+import { channelToImageData } from '../../engine/jpeg/colorspace'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -45,7 +45,7 @@ onMounted(draw)
 </script>
 
 <template>
-  <StepShell title="Color Space" subtitle="RGB → YCbCr">
+  <SlideLayout>
     <div class="color-step">
       <div class="controls">
         <button v-for="ch in (['rgb', 'y', 'cb', 'cr'] as const)" :key="ch"
@@ -59,7 +59,7 @@ onMounted(draw)
         <canvas ref="canvasRef" />
       </div>
     </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>JPEG converts RGB pixels to YCbCr: <strong>Y</strong> (luminance), <strong>Cb</strong> (blue-difference chroma), <strong>Cr</strong> (red-difference chroma).</p>
         <p style="margin-top:0.5rem">Human vision is more sensitive to brightness than colour, so we can compress the chroma channels more aggressively.</p>
@@ -68,7 +68,7 @@ Cb = -0.169R - 0.331G + 0.500B + 128
 Cr =  0.500R - 0.419G - 0.081B + 128</pre>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

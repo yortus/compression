@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { scaleQTable, LUMA_TABLE } from '../../engine/quantization'
-import { inverseDCT } from '../../engine/dct'
-import { dequantize } from '../../engine/quantization'
+import { scaleQTable, LUMA_TABLE } from '../../engine/jpeg/quantization'
+import { inverseDCT } from '../../engine/jpeg/dct'
+import { dequantize } from '../../engine/jpeg/quantization'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -93,7 +93,7 @@ onMounted(drawAll)
 </script>
 
 <template>
-  <StepShell title="Quantization" subtitle="Controlled information loss">
+  <SlideLayout>
     <div class="quant-step">
       <div class="panel">
         <h3>DCT coefficients</h3>
@@ -110,19 +110,13 @@ onMounted(drawAll)
         <canvas ref="reconCanvas" />
       </div>
     </div>
-    <div class="quality-control">
-      <label>
-        Quality: {{ pipeline.quality.value }}
-        <input type="range" min="1" max="100" v-model.number="pipeline.quality.value" />
-      </label>
-    </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>Each DCT coefficient is divided by a value from the quantization table and rounded to the nearest integer. Higher-frequency coefficients get divided by larger numbers, often becoming zero.</p>
         <p style="margin-top:0.5rem">This is the <strong>only lossy step</strong> in JPEG. Lower quality = larger divisors = more zeros = smaller file but more artifacts.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>
@@ -162,21 +156,4 @@ onMounted(drawAll)
   color: var(--positive);
 }
 
-.quality-control {
-  position: absolute;
-  top: 1.5rem;
-  right: 2rem;
-}
-
-.quality-control label {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.quality-control input[type="range"] {
-  width: 150px;
-}
 </style>

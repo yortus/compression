@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { channelToImageData } from '../../engine/colorspace'
-import { ZIGZAG_ORDER } from '../../engine/zigzag'
-import { partialInverseDCT } from '../../engine/dct'
+import { channelToImageData } from '../../engine/jpeg/colorspace'
+import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
+import { partialInverseDCT } from '../../engine/jpeg/dct'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -238,7 +238,7 @@ onMounted(() => { drawGrid(); drawDetail() })
 </script>
 
 <template>
-  <StepShell title="8×8 Blocks" subtitle="Per-block pipeline">
+  <SlideLayout>
     <div class="blocks-step">
       <div class="grid-panel">
         <p class="hint">Click a block to inspect it</p>
@@ -274,10 +274,6 @@ onMounted(() => { drawGrid(); drawDetail() })
             </label>
           </template>
           <template v-else>
-            <label class="quality-label">
-              Quality: {{ pipeline.quality.value }}
-              <input type="range" min="1" max="100" v-model.number="pipeline.quality.value" />
-            </label>
             <span class="zero-badge">{{ zeroCount }}/64 zeros</span>
           </template>
         </div>
@@ -287,13 +283,13 @@ onMounted(() => { drawGrid(); drawDetail() })
       <canvas ref="loupeCanvas" />
     </div>
 
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>Each 8×8 block goes through the full JPEG pipeline independently: DCT → Quantize → Zigzag scan → RLE → Huffman.</p>
         <p style="margin-top:0.5rem">Use the tabs to walk through each stage for the selected block.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

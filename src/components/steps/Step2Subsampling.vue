@@ -1,19 +1,28 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import type { SubsamplingMode } from '../../engine/types'
+import { useStat } from '../../stats/useStats'
 
 const pipeline = inject(PIPELINE_KEY)!
 
 const canvasRef = ref<HTMLCanvasElement>()
 
-const modes: SubsamplingMode[] = ['4:4:4', '4:2:2', '4:2:0']
-
-function setMode(m: SubsamplingMode) {
-  pipeline.subsamplingMode.value = m
-}
+// Three full-resolution planes in, one full plus two reduced planes out.
+useStat('chroma-subsample', () => {
+  const sub = pipeline.subsampled.value
+  if (!sub) return null
+  const rawSamples = sub.yWidth * sub.yHeight * 3
+  const keptSamples = sub.yWidth * sub.yHeight + 2 * sub.chromaWidth * sub.chromaHeight
+  return {
+    label: `Chroma subsampling · ${sub.mode}`,
+    rawBits: rawSamples * 8,
+    encodedBits: keptSamples * 8,
+    overheadBits: 0,
+    lossy: sub.mode !== '4:4:4',
+  }
+})
 
 const savings = computed(() => {
   const m = pipeline.subsamplingMode.value
@@ -60,30 +69,24 @@ onMounted(draw)
 </script>
 
 <template>
-  <StepShell title="Chroma Subsampling" subtitle="Reducing colour resolution">
+  <SlideLayout>
     <div class="sub-step">
       <div class="controls">
-        <button
-          v-for="m in modes" :key="m"
-          :class="{ active: pipeline.subsamplingMode.value === m }"
-          @click="setMode(m)"
-        >
-          {{ m }}
-        </button>
+        <span class="mode">{{ pipeline.subsamplingMode.value }}</span>
         <span class="savings">{{ savings }} data reduction</span>
       </div>
       <div class="canvas-wrap">
         <canvas ref="canvasRef" />
       </div>
     </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p><strong>4:4:4</strong> — no subsampling. Full chroma resolution.</p>
         <p><strong>4:2:2</strong> — chroma halved horizontally.</p>
         <p><strong>4:2:0</strong> — chroma halved in both dimensions. Most common in JPEG.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>
@@ -99,6 +102,13 @@ onMounted(draw)
   display: flex;
   gap: 0.25rem;
   align-items: center;
+}
+
+.mode {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .savings {

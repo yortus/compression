@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, onUnmounted, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { ZIGZAG_ORDER } from '../../engine/zigzag'
+import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
 import gsap from 'gsap'
 
 const pipeline = inject(PIPELINE_KEY)!
@@ -132,7 +132,7 @@ onUnmounted(stop)
 </script>
 
 <template>
-  <StepShell title="Zigzag Scan" subtitle="2D → 1D ordering">
+  <SlideLayout>
     <div class="zigzag-step">
       <div class="top-row">
         <div class="panel">
@@ -151,13 +151,13 @@ onUnmounted(stop)
         <p class="hint">Zeros cluster at the end — great for RLE compression</p>
       </div>
     </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>The zigzag scan reads the 8×8 coefficient matrix in a diagonal pattern, starting from the top-left (DC) and ending at the bottom-right (highest frequency).</p>
         <p style="margin-top:0.5rem">Since quantization zeros out most high-frequency coefficients, the zigzag order groups those zeros at the end of the 1D sequence — perfect for run-length encoding.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

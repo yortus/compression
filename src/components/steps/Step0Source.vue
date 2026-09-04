@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { inject, ref, onMounted, watch } from 'vue'
-import StepShell from '../StepShell.vue'
-import ImagePicker from '../ImagePicker.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 
 const pipeline = inject(PIPELINE_KEY)!
 const canvasRef = ref<HTMLCanvasElement>()
-
-function onLoad(imageData: ImageData) {
-  pipeline.loadImage(imageData)
-}
 
 function draw() {
   const img = pipeline.sourceImageData.value
@@ -26,9 +21,8 @@ onMounted(draw)
 </script>
 
 <template>
-  <StepShell title="Source Image" subtitle="The starting point">
+  <SlideLayout>
     <div class="source-step">
-      <ImagePicker @load="onLoad" />
       <div class="canvas-wrap">
         <canvas ref="canvasRef" />
         <p v-if="!pipeline.sourceImageData.value" class="placeholder">
@@ -40,7 +34,7 @@ onMounted(draw)
         · {{ (pipeline.sourceImageData.value.width * pipeline.sourceImageData.value.height * 3 / 1024).toFixed(0) }} KB uncompressed
       </div>
     </div>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

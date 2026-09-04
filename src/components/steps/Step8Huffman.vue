@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { inject, ref, computed } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { unpackSymbol } from '../../engine/huffman'
+import { unpackSymbol } from '../../engine/jpeg/huffman'
+import { useStat } from '../../stats/useStats'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -11,6 +12,24 @@ const showTree = ref(true)
 const highlightedCode = ref<string | null>(null)
 
 const huffman = computed(() => pipeline.selectedHuffman.value)
+
+// The decoder cannot do anything with the bitstream unless it also has the code
+// table, so the table is counted as primer rather than pretended away. On a single
+// block it dominates — which is the point.
+useStat('huffman-codes', () => {
+  const h = huffman.value
+  if (!h) return null
+  let tableBits = 0
+  for (const [, code] of h.codes) tableBits += 16 + 4 + code.length
+  return {
+    label: `Huffman · block ${pipeline.selectedBlockIndex.value}`,
+    rawBits: h.originalBits,
+    encodedBits: h.totalBits,
+    overheadBits: tableBits,
+    lossy: false,
+    note: 'single block',
+  }
+})
 
 const codeEntries = computed(() => {
   if (!huffman.value) return []
@@ -25,7 +44,7 @@ const codeEntries = computed(() => {
 </script>
 
 <template>
-  <StepShell title="Huffman Coding" subtitle="Optimal bit assignment">
+  <SlideLayout>
     <div class="huffman-step">
       <div class="section">
         <h3>Code Table</h3>
@@ -60,13 +79,13 @@ const codeEntries = computed(() => {
         </div>
       </div>
     </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>Huffman coding assigns shorter bit patterns to more frequent symbols and longer patterns to rare ones.</p>
         <p style="margin-top:0.5rem">JPEG uses Huffman coding (or arithmetic coding) as the final lossless compression step. Frequent RLE pairs like EOB and small-value coefficients get very short codes.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>

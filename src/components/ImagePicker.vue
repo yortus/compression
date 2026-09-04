@@ -5,7 +5,12 @@ const emit = defineEmits<{
   load: [imageData: ImageData]
 }>()
 
+defineProps<{
+  disabled?: boolean
+}>()
+
 const fileInput = ref<HTMLInputElement>()
+const activeSample = ref<string | null>(null)
 
 const SAMPLES = [
   { name: 'Photo', url: '/samples/photo.jpg' },
@@ -20,8 +25,11 @@ function openDialog() {
 async function onFileChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
-  const imageData = await loadFile(file)
-  if (imageData) emit('load', imageData)
+  const imageData = await blobToImageData(file)
+  if (imageData) {
+    activeSample.value = null
+    emit('load', imageData)
+  }
 }
 
 async function loadSample(url: string) {
@@ -29,15 +37,15 @@ async function loadSample(url: string) {
     const resp = await fetch(url)
     const blob = await resp.blob()
     const imageData = await blobToImageData(blob)
-    if (imageData) emit('load', imageData)
+    if (imageData) {
+      activeSample.value = url
+      emit('load', imageData)
+    }
   } catch {
     // Sample not found — generate a fallback test image
+    activeSample.value = null
     emit('load', generateTestImage())
   }
-}
-
-async function loadFile(file: File): Promise<ImageData | null> {
-  return blobToImageData(file)
 }
 
 async function blobToImageData(blob: Blob): Promise<ImageData | null> {
@@ -67,7 +75,7 @@ function generateTestImage(): ImageData {
   return data
 }
 
-// Auto-load a test image on mount if no samples available
+// Called by the control bar so the deck is never sitting on an empty slide.
 function loadDefault() {
   loadSample(SAMPLES[0].url)
 }
@@ -77,17 +85,17 @@ defineExpose({ loadDefault })
 
 <template>
   <div class="image-picker">
-    <div class="samples">
-      <button
-        v-for="s in SAMPLES"
-        :key="s.name"
-        @click="loadSample(s.url)"
-        class="sample-btn"
-      >
-        {{ s.name }}
-      </button>
-    </div>
-    <button @click="openDialog" class="upload-btn">Choose File…</button>
+    <button
+      v-for="s in SAMPLES"
+      :key="s.name"
+      class="chip"
+      :class="{ active: activeSample === s.url }"
+      :disabled="disabled"
+      @click="loadSample(s.url)"
+    >
+      {{ s.name }}
+    </button>
+    <button class="chip file" :disabled="disabled" @click="openDialog">File…</button>
     <input ref="fileInput" type="file" accept="image/*" hidden @change="onFileChange" />
   </div>
 </template>
@@ -95,18 +103,17 @@ defineExpose({ loadDefault })
 <style scoped>
 .image-picker {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.2rem;
   align-items: center;
 }
 
-.samples {
-  display: flex;
-  gap: 0.25rem;
+.chip {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.62rem;
+  border-radius: 4px;
 }
 
-.upload-btn {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+.chip.file {
+  color: var(--text-secondary);
 }
 </style>

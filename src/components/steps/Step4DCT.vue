@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted } from 'vue'
-import StepShell from '../StepShell.vue'
+import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { basisFunction, partialInverseDCT } from '../../engine/dct'
-import { ZIGZAG_ORDER } from '../../engine/zigzag'
+import { basisFunction, partialInverseDCT } from '../../engine/jpeg/dct'
+import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -117,7 +117,7 @@ onMounted(drawAll)
 </script>
 
 <template>
-  <StepShell title="DCT" subtitle="Discrete Cosine Transform">
+  <SlideLayout>
     <div class="dct-step">
       <div class="panel">
         <h3>Reconstruction ({{ buildCount }}/64 coefficients)</h3>
@@ -142,13 +142,13 @@ onMounted(drawAll)
         {{ showBasis ? 'Hide' : 'Show' }} Basis Functions
       </button>
     </div>
-    <template #detail>
+    <template #notes>
       <ExpandablePanel label="How it works">
         <p>The DCT transforms an 8×8 block of pixel values into 8×8 frequency coefficients.</p>
         <p style="margin-top:0.5rem">The top-left coefficient (DC) is the average brightness. Moving right/down increases horizontal/vertical frequency. Most image energy concentrates in the low-frequency (top-left) coefficients.</p>
       </ExpandablePanel>
     </template>
-  </StepShell>
+  </SlideLayout>
 </template>
 
 <style scoped>
