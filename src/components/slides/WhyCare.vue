@@ -4,6 +4,7 @@ import SlideLayout from '../../deck/SlideLayout.vue'
 import Fragment from '../../deck/Fragment.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
+import { compareImages } from '../../engine/compare'
 import { useStat } from '../../stats/useStats'
 
 /**
@@ -32,6 +33,12 @@ const compressedBytes = computed(() => {
 
 const ratio = computed(() => (compressedBytes.value ? rawBytes.value / compressedBytes.value : 0))
 
+const diff = computed(() => {
+  const src = pipeline.sourceImageData.value
+  const recon = pipeline.reconstructed.value
+  return src && recon ? compareImages(src, recon) : null
+})
+
 // The slide with the deck's most quotable numbers should not be the one slide whose
 // stats bar reads "no data".
 useStat('why-care', () => {
@@ -41,8 +48,10 @@ useStat('why-care', () => {
     rawBits: rawBytes.value * 8,
     encodedBits: compressedBytes.value * 8,
     overheadBits: 0,
-    lossy: true,
-    note: `idealised · Q=${pipeline.quality.value}`,
+    lossy: !diff.value?.identical,
+    note: diff.value?.identical
+      ? `Q=${pipeline.quality.value} · bit-identical`
+      : `idealised · Q=${pipeline.quality.value}`,
   }
 })
 

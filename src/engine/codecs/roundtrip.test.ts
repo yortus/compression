@@ -6,6 +6,7 @@ import {
 import { palettise, paletteToImageData, indexBits } from './palette'
 import { splitPlanes, joinPlanes, interleavedBytes, planeToImageData } from './planes'
 import { roundTrips } from './types'
+import { compareImages } from '../compare'
 
 /**
  * These tests exist for one reason: the deck stands in front of a room and claims every
@@ -192,5 +193,43 @@ describe('colour planes', () => {
     const planar = [...r, ...g, ...b].sort((x, y) => x - y)
     const interleaved = [...interleavedBytes(img)].sort((x, y) => x - y)
     expect(planar).toEqual(interleaved)
+  })
+})
+
+describe('image comparison', () => {
+  // The lossy/lossless badge is driven by this, so a wrong answer here mislabels a slide.
+  const PIXELS: [number, number, number][] = [
+    [10, 20, 30], [40, 50, 60], [70, 80, 90], [100, 110, 120],
+  ]
+
+  function withPixel(pixels: [number, number, number][], index: number, rgb: [number, number, number]) {
+    const copy = pixels.map(p => [...p] as [number, number, number])
+    copy[index] = rgb
+    return copy
+  }
+
+  it('reports an identical copy as identical', () => {
+    const a = imageOf(PIXELS, 2)
+    const b = imageOf(PIXELS, 2)
+    expect(compareImages(a, b)).toMatchObject({ identical: true, changedPixels: 0, maxChannelError: 0 })
+  })
+
+  it('notices a single byte of difference', () => {
+    const a = imageOf(PIXELS, 2)
+    const b = imageOf(withPixel(PIXELS, 2, [70, 80, 91]), 2)
+    const diff = compareImages(a, b)
+    expect(diff.identical).toBe(false)
+    expect(diff.changedPixels).toBe(1)
+    expect(diff.maxChannelError).toBe(1)
+  })
+
+  it('measures the largest single-channel error', () => {
+    const a = imageOf(PIXELS, 2)
+    const b = imageOf(withPixel(PIXELS, 0, [10, 20, 200]), 2)
+    expect(compareImages(a, b).maxChannelError).toBe(170)
+  })
+
+  it('treats differently sized images as different', () => {
+    expect(compareImages(imageOf(PIXELS, 2), imageOf(PIXELS.slice(0, 2), 2)).identical).toBe(false)
   })
 })

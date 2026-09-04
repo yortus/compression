@@ -55,6 +55,11 @@ These exist to settle recurring decisions without re-litigating them:
   the words are data, so they can be revised without touching code and reused by learn mode.
 - **Fail-visible demos are the point.** The RGB-RLE slide that *expands* the file is more valuable
   than any slide that works. Do not quietly fix it.
+- **Never assert what can be measured.** If a slide claims a transform is invertible, decode and
+  compare; if it labels a result lossy, diff the reconstruction against the original. Two slides
+  originally hardcoded `lossy: true` for JPEG, which is true of the format but not necessarily of a
+  given run of it — the badge now reports what actually happened, and the note carries the max
+  channel error.
 - **Report the spread, not just the best case.** A technique's numbers on one image say little; the
   interesting fact is usually how far they move across the three samples. Where a slide can show
   that range cheaply, it should.

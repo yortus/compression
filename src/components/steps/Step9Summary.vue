@@ -5,6 +5,7 @@ import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { useStat } from '../../stats/useStats'
 import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
+import { compareImages } from '../../engine/compare'
 
 const pipeline = inject(PIPELINE_KEY)!
 
@@ -29,6 +30,14 @@ const compressionRatio = computed(() => {
   }
 })
 
+// Whether this run actually lost anything is a measurement, not a property of the
+// format: at Q100 with no chroma subsampling some images survive untouched.
+const diff = computed(() => {
+  const src = pipeline.sourceImageData.value
+  const recon = pipeline.reconstructed.value
+  return src && recon ? compareImages(src, recon) : null
+})
+
 useStat('jpeg-result', () => {
   const r = compressionRatio.value
   if (!r) return null
@@ -37,8 +46,10 @@ useStat('jpeg-result', () => {
     rawBits: r.rawBytes * 8,
     encodedBits: r.estimatedBytes * 8,
     overheadBits: 0,
-    lossy: true,
-    note: `idealised · Q=${pipeline.quality.value} · no code tables`,
+    lossy: !diff.value?.identical,
+    note: diff.value?.identical
+      ? `Q=${pipeline.quality.value} · reconstruction is bit-identical`
+      : `idealised · Q=${pipeline.quality.value} · max error ${diff.value?.maxChannelError ?? 0}/255`,
   }
 })
 
