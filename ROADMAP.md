@@ -156,9 +156,15 @@ show exactly that comparison.
 
 | Id | Slide | Notes |
 |----|-------|-------|
-| `huffman-build` | Animated tree build over a user-supplied string | core; generalise `engine/huffman.ts` off JPEG symbols |
-| `huffman-codes` | Code table, savings vs fixed-width, and the table itself as overhead | core; reuse `Step8Huffman` |
+| `huffman-codes` | The whole round trip animated over real text in four languages: tokenise, count, code, encode, decode | core; `engine/codecs/huffman.ts` + `engine/codecs/tokenise.ts` |
 | `beyond-huffman` | Arithmetic / range / ANS in one slide: fractional bits, and why that matters | optional |
+
+The tree build was cut. It had its own slide — merge by merge, over editable text — and it
+answered a question the talk never asks: *how* the codes are chosen. What the audience needs is
+that common things get short codes, that the message shrinks by a measurable factor, and that it
+comes back exactly. Spending a slide on the greedy argument bought none of that, so `huffman-codes`
+now carries the whole act on its own and the picker carries the real lesson: the choice of symbol
+is made before any compression happens, and it is language-specific.
 
 ### Act 4 — Fourier and the DCT (reuse and extend)
 
@@ -366,8 +372,7 @@ Interactive Huffman tree build; `waves-intro` and `dct-1d`; the animated 64 basi
 raster-vs-zigzag run-length comparison that makes the zigzag insight land.
 **Done when:** each of those four has a knob the audience can turn and a stat that responds to it.
 
-*Delivered:* five slides, 34 in total. `huffman-build` steps or replays the merges over editable
-text and decodes its own bitstream back before reporting; `waves-intro` and `dct-1d` share a
+*Delivered:* five slides, 34 in total (33 after the Act 3 rework below). `waves-intro` and `dct-1d` share a
 drawable `SignalPad` over a new general 1-D DCT-II in `engine/signal.ts`; `basis-64` builds a real
 block back up from the 64 patterns, by slider, by replay, or by clicking patterns individually; and
 `zigzag` compares the two scan orders side by side. Two new engine modules came with them —

@@ -8,25 +8,21 @@ import type { ProseRegistry } from './types'
  * manufactures them, and the JPEG act is where the bill is added up.
  */
 export const ACT345_PROSE: ProseRegistry = {
-  'huffman-build': {
-    speaker: 'Take the two rarest, glue them together, repeat. That is the whole algorithm.',
-    learner:
-      'Huffman coding gives common symbols short codes and rare ones long codes, and the way it ' +
-      'decides is almost insultingly simple: repeatedly take the two least frequent items and ' +
-      'combine them into one. Step through the merges and watch the tree assemble itself from the ' +
-      'bottom. Every left branch is a 0 and every right branch a 1, so reading down from the root ' +
-      'to a leaf spells out that symbol’s code — and because symbols only ever sit at leaves, ' +
-      'no code is a prefix of another and the decoder never needs a separator. The catch is at the ' +
-      'bottom of the slide: the decoder cannot use any of it without the code table, and on a short ' +
-      'message that table costs more than the message.',
-  },
   'huffman-codes': {
-    speaker: 'The same coder on real JPEG symbols. Short codes for EOB and small values.',
+    speaker: 'Common things get short codes, rare things get long ones. Swap the text and watch the number move.',
     learner:
-      'Here is that coder pointed at one block of the image: the symbols are the (run, value) pairs ' +
-      'from the run-length step, and the frequent ones — end-of-block, small coefficients — collect ' +
-      'the shortest codes. This is the last step of JPEG, and it is entirely lossless. Everything ' +
-      'that was going to be thrown away has already gone.',
+      'Huffman coding is the entropy coder JPEG finishes with, and the idea fits in one line: ' +
+      'count how often each symbol occurs, then give the common ones short bit patterns and the ' +
+      'rare ones long ones. Step through it — the message is cut into tokens, repeats share a ' +
+      'colour, every distinct token flies down into a frequency table, each one collects a code, ' +
+      'the message becomes a ribbon of bits several times shorter, and the ribbon decodes back to ' +
+      'exactly the text it came from. Nothing is lost anywhere in that loop. Two things are worth ' +
+      'watching rather than being told. The first is the picker: what counts as a *symbol* is a ' +
+      'decision taken before any compression happens, and it is language-specific — English pays ' +
+      'off coded by word, Chinese by character, and the ASCII noise pays off under neither, ' +
+      'because there is no repetition to exploit and the ratio collapses to almost nothing. The ' +
+      'second is the second bar under the badge: the decoder cannot read a single bit without the ' +
+      'code table, so the table is part of the message, and on a short text it is the bigger half.',
   },
   'waves-intro': {
     speaker: 'Any signal is a sum of fixed cosines. Drag the slider, watch it assemble.',

@@ -6,7 +6,6 @@ import Step4DCT from '../components/steps/Step4DCT.vue'
 import Step5Quantization from '../components/steps/Step5Quantization.vue'
 import Step6Zigzag from '../components/steps/Step6Zigzag.vue'
 import Step7RLE from '../components/steps/Step7RLE.vue'
-import Step8Huffman from '../components/steps/Step8Huffman.vue'
 import Step9Summary from '../components/steps/Step9Summary.vue'
 
 import RleText from '../components/slides/RleText.vue'
@@ -25,7 +24,7 @@ import WhyCare from '../components/slides/WhyCare.vue'
 import InfoTheory from '../components/slides/InfoTheory.vue'
 import Timeline from '../components/slides/Timeline.vue'
 import Optimisation from '../components/slides/Optimisation.vue'
-import HuffmanBuild from '../components/slides/HuffmanBuild.vue'
+import HuffmanCodes from '../components/slides/HuffmanCodes.vue'
 import WavesIntro from '../components/slides/WavesIntro.vue'
 import Dct1D from '../components/slides/Dct1D.vue'
 import Basis2D from '../components/slides/Basis2D.vue'
@@ -195,22 +194,15 @@ export const SLIDES: SlideDef[] = [
     fragments: 2,
   },
   {
-    id: 'huffman-build',
-    act: 'entropy',
-    title: 'Building the Tree',
-    subtitle: 'Take the two rarest things and glue them together',
-    component: HuffmanBuild,
-    tag: 'core',
-    fragments: 2,
-  },
-  {
     id: 'huffman-codes',
     act: 'entropy',
     title: 'Huffman Coding',
-    subtitle: 'Short codes for common symbols',
-    component: Step8Huffman,
+    subtitle: 'Short codes for common things, long codes for rare ones',
+    component: HuffmanCodes,
     tag: 'core',
-    controls: ['image', 'quality', 'block'],
+    // One fragment per phase of the round trip, so the arrow keys drive the animation
+    // like the build on any other slide.
+    fragments: 6,
   },
   {
     id: 'waves-intro',

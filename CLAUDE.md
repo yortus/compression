@@ -51,7 +51,7 @@ holds the inputs (`sourceImageData`, `quality`, `subsamplingMode`, `selectedBloc
 There is no other state store.
 
 **`src/deck/` — the deck framework.** `slides.ts` is the single source of deck order: an array of
-`{ id, act, title, component, tag, controls, fragments }`, 34 slides across 7 acts. `useDeck.ts`
+`{ id, act, title, component, tag, controls, fragments }`, 33 slides across 7 acts. `useDeck.ts`
 owns the current slide and fragment and syncs them to the URL hash (`#/zigzag`, `#/zigzag/1`);
 `DeckShell.vue` renders all the persistent chrome (ToC rail, title bar, stats HUD, control bar,
 loupe) and binds the keys. Slide components live in `src/components/slides/`; the older
@@ -84,7 +84,8 @@ slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
 - **Huffman is per-block and illustrative.** `encodeBlock` builds a fresh tree from one block's RLE
   pairs. There is no real bitstream, no DC differential coding, and no standard entropy tables —
   that's deliberate; it demos the idea in numbers the audience can follow. `engine/codecs/huffman.ts`
-  is the general version, over an arbitrary symbol type, used by the Act 3 tree-building slide.
+  is the general version, over an arbitrary symbol type, used by the Act 3 `huffman-codes` slide
+  over whole words and characters of real text.
 - **`estimateEncodedBits` is the one whole-image size figure**, shared by `why-care`, `jpeg-result`,
   `jpeg-pipeline` and the benchmark so they cannot disagree. It samples blocks via
   `sampleBlockIndices`, a golden-ratio sequence — *not* a fixed stride. Every sample image is 512px
