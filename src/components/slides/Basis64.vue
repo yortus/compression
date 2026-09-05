@@ -45,17 +45,42 @@ const deck = useDeck()
 
 // --- Stage geometry, in canvas logical units ---------------------------------
 
-const STAGE_W = 1100
-const STAGE_H = 560
-const TILE = 50
-const GAP = 6
+/**
+ * 1.55:1, and the canvas is told to fill the column it sits in rather than being capped
+ * at a fraction of the viewport.
+ *
+ * The old stage was 1.96:1 pinned to `54vh`, which is nearly two to one dropped into a
+ * box nearer three to two: about 230px of the slide area went unused every time, and the
+ * tiles paid for it. Everything on this stage is square and laid out in a row, so the
+ * composition wants to be wide; the fix is to meet the box most of the way and spend the
+ * rest on margin, not to leave it outside the canvas where it does nothing.
+ *
+ * The horizontal budget is the binding constraint — two stations, two arrow runs and the
+ * grid have to share 1320 units — so the station and tile sizes below are a split of it
+ * rather than independent choices. Changing one means changing another.
+ */
+/** Both divide by 8, so a cell is a whole number of pixels wide — see CLAUDE.md. */
+const TILE = 80
+const GAP = 8
 const GRID_SPAN = TILE * 8 + GAP * 7
-const GRID_X = 315
-const GRID_Y = 58
+const STATION = 200
+const MARGIN = 16
+/**
+ * Wide enough for a bold arrow and nothing else. It used to carry "forward DCT" and
+ * "inverse DCT" above it, which set a floor of about 90 units on the run; without the
+ * words the row packs tighter, and since tile size is `column width / STAGE_W * TILE`,
+ * every unit taken out of the packing comes back as a bigger tile.
+ */
+const ARROW_RUN = 76
+const SRC_X = MARGIN
+const GRID_X = SRC_X + STATION + ARROW_RUN
+const RECON_X = GRID_X + GRID_SPAN + ARROW_RUN
+const STAGE_W = RECON_X + STATION + MARGIN
+/** Aspect between the box a laptop offers and the one a 1080p projector does. */
+const STAGE_H = 832
+/** Nothing above or below the row any more, so it simply sits in the middle. */
+const GRID_Y = (STAGE_H - GRID_SPAN) / 2
 const CY = GRID_Y + GRID_SPAN / 2
-const STATION = 170
-const SRC_X = 40
-const RECON_X = 880
 
 // Cell coordinates are centres: sprites are drawn around their own centre so that scaling
 // a tile grows it from the middle rather than from a corner.
@@ -291,11 +316,12 @@ const STAGES = ['start', 'grid', 'quantised', 'done'] as const
  * carry the other half of the meaning: the boundary between them is exactly where
  * quantisation throws information away, so everything left of it is still reversible.
  *
- * The duplicate button labels are the point, but they would make a useless status
- * readout, so the corner of the stage gets its own unambiguous wording.
+ * The stage used to carry an unambiguous restatement of the current state in its top
+ * corner, because two of the four labels are the same word. It is gone: the lit button
+ * and the picture below it already say where the animation is, and a caption that
+ * changes on every step is the kind of thing an audience reads instead of watching.
  */
 const STAGE_NAMES = ['Pixels', 'Waves', 'Waves', 'Pixels'] as const
-const PHASE_NAMES = ['pixels', 'all 64 waves', 'the waves that survived', 'pixels rebuilt'] as const
 
 let tl: gsap.core.Timeline | null = null
 /** The tween that moves the playhead, kept so a second click can cancel the first. */
@@ -438,40 +464,26 @@ function readColours() {
   }
 }
 
-function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, colour = colours.dim, size = 15) {
-  ctx.fillStyle = colour
-  ctx.font = `${size}px Inter, system-ui, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(text, x, y)
-}
-
-function arrow(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number, text: string) {
-  ctx.strokeStyle = colours.border
-  ctx.lineWidth = 2
+/**
+ * The forward and inverse transforms, as shape rather than as words.
+ *
+ * They were labelled, in 13px grey, which is unreadable from a room and was the only
+ * reason the arrow runs had to be 90 units wide. A heavy accent chevron says "this way,
+ * and this is the move" at a glance, and the slide's title says which move it is.
+ */
+function arrow(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number) {
+  const HEAD = 26
+  ctx.strokeStyle = colours.accent
+  ctx.lineWidth = 9
+  ctx.lineCap = 'butt'
   ctx.beginPath()
   ctx.moveTo(x1, y)
-  ctx.lineTo(x2 - 8, y)
+  ctx.lineTo(x2 - HEAD + 2, y)
   ctx.stroke()
-  ctx.fillStyle = colours.border
+  ctx.fillStyle = colours.accent
   ctx.beginPath()
-  ctx.moveTo(x2, y); ctx.lineTo(x2 - 10, y - 6); ctx.lineTo(x2 - 10, y + 6)
+  ctx.moveTo(x2, y); ctx.lineTo(x2 - HEAD, y - 15); ctx.lineTo(x2 - HEAD, y + 15)
   ctx.closePath(); ctx.fill()
-  label(ctx, text, (x1 + x2) / 2, y - 18, colours.dim, 13)
-}
-
-/** Where the playhead actually is, which is not the same as which fragment is showing. */
-function phaseName() {
-  if (!tl) return PHASE_NAMES[0]
-  const t = tl.time()
-  const l = tl.labels
-  if (t >= l.done - 0.01) return PHASE_NAMES[3]
-  if (t > l.quantised) return 'reassembling'
-  if (t >= l.quantised - 0.01) return PHASE_NAMES[2]
-  if (t > l.grid) return 'quantising'
-  if (t >= l.grid - 0.01) return PHASE_NAMES[1]
-  if (t > 0.01) return 'transforming'
-  return PHASE_NAMES[0]
 }
 
 function draw() {
@@ -509,22 +521,11 @@ function draw() {
   ctx.strokeRect(SRC_X + 0.5, CY - STATION / 2 + 0.5, STATION - 1, STATION - 1)
   ctx.strokeRect(RECON_X + 0.5, CY - STATION / 2 + 0.5, STATION - 1, STATION - 1)
 
-  ctx.textAlign = 'left'
-  ctx.fillStyle = colours.accent
-  ctx.font = '600 13px Inter, system-ui, sans-serif'
-  ctx.fillText(phaseName().toUpperCase(), 16, 20)
-
-  arrow(ctx, SRC_X + STATION + 14, GRID_X - 12, CY, 'forward DCT')
-  arrow(ctx, GRID_X + GRID_SPAN + 12, RECON_X - 14, CY, 'inverse DCT')
-
-  label(ctx, 'the block', SRC_X + STATION / 2, CY - STATION / 2 - 20, colours.text)
-  label(ctx, '64 coefficients', GRID_X + GRID_SPAN / 2, GRID_Y - 22, colours.text)
-  label(ctx, 'what comes back', RECON_X + STATION / 2, CY - STATION / 2 - 20, colours.text)
-  label(ctx, `${keptCount.value} of 64 kept`, GRID_X + GRID_SPAN / 2, GRID_Y + GRID_SPAN + 22, colours.good, 13)
-  if (gain.value > 1.05) {
-    label(ctx, `fine patterns shown at ×${gain.value.toFixed(1)} contrast`,
-      GRID_X + GRID_SPAN / 2, GRID_Y + GRID_SPAN + 40, colours.dim, 11)
-  }
+  // No text on the stage at all. Everything that used to be written here is either
+  // obvious from the picture (three panels, two arrows) or reported by the always-on
+  // stats HUD, which already carries the kept count and the maximum pixel error.
+  arrow(ctx, SRC_X + STATION + 8, GRID_X - 8, CY)
+  arrow(ctx, GRID_X + GRID_SPAN + 8, RECON_X - 8, CY)
 
   // Grid tiles, crossfaded between their before- and after-quantisation versions. During
   // the implode these are the same objects, in flight towards the reconstruction.
@@ -670,37 +671,29 @@ onUnmounted(() => {
   <SlideLayout>
     <div class="basis">
       <div class="picker">
-        <h3>Pick a block</h3>
         <canvas ref="pickerCanvas" v-loupe @click="pickBlock" />
-        <p class="hint">
-          block {{ pipeline.selectedBlockIndex.value }}<template v-if="blockCount">/{{ blockCount - 1 }}</template>
-          · click anywhere on the image
-        </p>
       </div>
 
       <div class="stage">
-        <div class="stage-inner">
+        <div class="stage-wrap">
           <canvas ref="stageCanvas" />
+        </div>
 
-          <div class="controls">
-            <!-- Picking a state plays the animation to it, in whichever direction.
-                 Keyed by index, not by name: two of the four labels are the same word. -->
-            <div class="stages">
-              <div class="stage-row">
-                <button
-                  v-for="(name, i) in STAGE_NAMES" :key="i"
-                  class="stage-btn" :class="{ on: stage === i }"
-                  @click="selectStage(i)"
-                >{{ name }}</button>
-              </div>
-              <div class="brackets">
-                <span class="bracket">original</span>
-                <span class="bracket">compressed</span>
-              </div>
+        <div class="controls">
+          <!-- Picking a state plays the animation to it, in whichever direction.
+               Keyed by index, not by name: two of the four labels are the same word. -->
+          <div class="stages">
+            <div class="stage-row">
+              <button
+                v-for="(name, i) in STAGE_NAMES" :key="i"
+                class="stage-btn" :class="{ on: stage === i }"
+                @click="selectStage(i)"
+              >{{ name }}</button>
             </div>
-
-            <span class="err" :class="maxError === 0 ? 'good' : 'warn'">max error {{ Math.round(maxError) }}/255</span>
-
+            <div class="brackets">
+              <span class="bracket">original</span>
+              <span class="bracket">compressed</span>
+            </div>
           </div>
         </div>
       </div>
@@ -709,54 +702,48 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/*
+ * A percentage rather than a fixed 17rem for the picker: the wider the deck is, the wider
+ * the stage column gets, and the closer the box it offers comes to the stage's own aspect.
+ * A fixed column did the opposite — it took the same 476px from a laptop as from a
+ * projector, which is where most of the wasted space on this slide came from.
+ */
 .basis {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr);
-  gap: 1.4rem;
+  grid-template-columns: 19% minmax(0, 1fr);
+  gap: 1rem;
   width: 100%;
   height: 100%;
   min-height: 0;
-  align-items: center;
 }
 
 .picker {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-h3 {
-  font-size: 0.6rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.picker canvas {
-  max-width: 100%;
-  max-height: 46vh;
-  border-radius: 4px;
-  cursor: crosshair;
-}
-
-.hint {
-  font-size: 0.55rem;
-  color: var(--text-secondary);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.stage {
-  display: flex;
   justify-content: center;
   min-width: 0;
   min-height: 0;
 }
 
-/* Shrink-wraps the canvas so the control row lines up under it rather than centring
-   itself on the whole column. */
-.stage-inner {
+/* Gives the canvas a box with a definite height, so that `max-width` and `max-height`
+   at 100% can scale it to fill whichever axis binds. */
+.stage-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.picker canvas {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 4px;
+  cursor: crosshair;
+}
+
+.stage {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -767,7 +754,7 @@ h3 {
 
 .stage canvas {
   max-width: 100%;
-  max-height: 54vh;
+  max-height: 100%;
   border-radius: 6px;
   border: 1px solid var(--border);
 }
@@ -777,8 +764,8 @@ h3 {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  font-size: 0.58rem;
+  gap: 0.45rem 1.2rem;
+  font-size: 0.66rem;
   color: var(--text-secondary);
 }
 
@@ -786,12 +773,6 @@ h3 {
    per line rather than simply moving to the next row. */
 .controls > * {
   white-space: nowrap;
-}
-
-.chip {
-  padding: 0.16rem 0.45rem;
-  font-size: 0.56rem;
-  border-radius: 4px;
 }
 
 /* Segmented group: one control with four states, rather than four separate buttons. */
@@ -817,7 +798,7 @@ h3 {
   position: relative;
   padding-top: 0.42rem;
   text-align: center;
-  font-size: 0.5rem;
+  font-size: 0.56rem;
   letter-spacing: 0.04em;
   color: var(--text-secondary);
 }
@@ -837,8 +818,8 @@ h3 {
 }
 
 .stage-btn {
-  padding: 0.18rem 0.5rem;
-  font-size: 0.56rem;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.66rem;
   border-radius: 0;
   border-right-width: 0;
 }
@@ -858,12 +839,4 @@ h3 {
   color: #fff;
 }
 
-
-.err {
-  font-variant-numeric: tabular-nums;
-  min-width: 7rem;
-}
-
-.err.good { color: var(--positive); }
-.err.warn { color: var(--warning); }
 </style>

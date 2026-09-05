@@ -69,7 +69,10 @@ export const ACT345_PROSE: ProseRegistry = {
       'and then sharpen. Drag the quality slider and the middle act changes: at low quality only a ' +
       'handful of patterns make the journey, and the error at the end grows to match. Click any ' +
       'block in the image on the left to try another one — flat sky needs almost nothing, and a ' +
-      'sprite with hard edges shows the ringing that JPEG is famous for. One cost is missing from ' +
+      'sprite with hard edges shows the ringing that JPEG is famous for. One honesty note about ' +
+      'the picture: the 64 pattern tiles share a single display contrast, because truthfully drawn ' +
+      'all but the first few are flat squares. One gain across all of them keeps their sizes ' +
+      'relative to each other exact, so what you are comparing is real. One cost is missing from ' +
       'the numbers here on purpose: the encoder still has to say which patterns survived, and ' +
       'that turns out to be the interesting part. It is what the next two slides are about.',
   },
