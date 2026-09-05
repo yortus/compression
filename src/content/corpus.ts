@@ -62,7 +62,7 @@ export const SAMPLE_TEXTS: SampleText[] = [
     tokeniser: 'words',
     cols: 34,
     lineFactor: 1.22,
-    credit: 'Jane Austen, Pride and Prejudice, 1813',
+    credit: 'Austen, Pride and Prejudice, 1813',
     text:
       'It is a truth universally acknowledged, that a single man in possession of a ' +
       'good fortune, must be in want of a wife. However little known the feelings or ' +
@@ -79,7 +79,7 @@ export const SAMPLE_TEXTS: SampleText[] = [
     tokeniser: 'words',
     cols: 34,
     lineFactor: 1.58,
-    credit: 'Upanishadic peace invocations, before 500 BCE',
+    credit: 'Upanishadic peace mantras, pre-500 BCE',
     text: [
       'ॐ पूर्णमदः पूर्णमिदं पूर्णात्पूर्णमुदच्यते ।',
       'पूर्णस्य पूर्णमादाय पूर्णमेवावशिष्यते ॥',
@@ -100,7 +100,7 @@ export const SAMPLE_TEXTS: SampleText[] = [
     tokeniser: 'graphemes',
     cols: 16,
     lineFactor: 1.24,
-    credit: 'Laozi, Dao De Jing, chapters 1, 2 and 8',
+    credit: 'Laozi, Dao De Jing, ch. 1, 2, 8',
     text:
       '道可道，非常道。名可名，非常名。無名天地之始，有名萬物之母。' +
       '故常無欲以觀其妙，常有欲以觀其徼。此兩者同出而異名，同謂之玄。' +
@@ -118,7 +118,7 @@ export const SAMPLE_TEXTS: SampleText[] = [
     tokeniser: 'graphemes',
     cols: 34,
     lineFactor: 1.22,
-    credit: 'xorshift32, seeded — the control case',
+    credit: 'seeded pseudorandom — the control case',
     text: asciiNoise(470),
   },
 ]

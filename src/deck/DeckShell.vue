@@ -248,10 +248,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-radius: 4px;
 }
 
+/*
+ * Tight on purpose. Slides here are fit-to-box rather than flowing text, so every rem of
+ * padding comes straight off the thing the audience is looking at — on a laptop the old
+ * 1rem/1.25rem cost about 70px of width and 42px of height. Slides that want breathing
+ * room can add their own; the shell should not spend it on their behalf.
+ */
 .slide-area {
   min-height: 0;
   overflow: hidden;
-  padding: 1rem 1.25rem 0.5rem;
+  padding: 0.55rem 0.7rem 0.35rem;
 }
 
 /* Controls get the whole row — nothing may squeeze them off the bar. */

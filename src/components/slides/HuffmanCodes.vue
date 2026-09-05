@@ -48,32 +48,52 @@ const deck = useDeck()
 
 // --- Stage geometry, in canvas logical units ---------------------------------
 
+/**
+ * The stage aspect is chosen to match the deck's slide area once the control row beneath
+ * it is accounted for, and the canvas is then told to fill that area in both directions.
+ * An earlier version pinned the height to `66vh` against a 2.1:1 stage, which left about
+ * a hundred pixels unused down each edge — on a projector that is legibility thrown away.
+ *
+ * There are no captions on the stage. Every panel is identifiable from what it contains
+ * and from the step buttons under it, and the words that were genuinely carrying
+ * information — which text this is, and what a symbol is for that text — moved into the
+ * control row where they belong.
+ */
 const STAGE_W = 1600
-const STAGE_H = 756
+/**
+ * 1.96:1 — between the two shapes the slide area actually takes. A laptop leaves a box
+ * near 2.0:1 and a 1080p projector nearer 1.9:1, so a fixed stage has to pick somewhere
+ * between them; at either end the leftover is around 30px on one axis rather than 60 on
+ * the other.
+ */
+const STAGE_H = 816
+
+const MARGIN = 16
+const GAP = 22
 
 /** The two text grids are square and the same size, so a match is checkable by eye. */
-const PANEL = 430
-const GRID_Y = 48
-const LEFT_X = 24
-const RIGHT_X = STAGE_W - 24 - PANEL
+const PANEL = 486
+const GRID_Y = 14
+const LEFT_X = MARGIN
+const RIGHT_X = STAGE_W - MARGIN - PANEL
 
-const CENTRE_X = LEFT_X + PANEL + 30
-const CENTRE_W = RIGHT_X - 30 - CENTRE_X
+const CENTRE_X = LEFT_X + PANEL + GAP
+const CENTRE_W = RIGHT_X - GAP - CENTRE_X
 const CENTRE_Y = GRID_Y
 const CENTRE_H = PANEL
 
 const RIBBON_X = CENTRE_X + 16
-const RIBBON_Y = CENTRE_Y + 20
+const RIBBON_Y = CENTRE_Y + 16
 const RIBBON_W = CENTRE_W - 32
-const RIBBON_H = 322
-const RIBBON_FONT = 21
+const RIBBON_H = 374
+const RIBBON_FONT = 24
 /** The badge sits alone under the ribbon — the arithmetic behind it lives in the HUD. */
-const BADGE_Y = CENTRE_Y + 388
+const BADGE_Y = CENTRE_Y + CENTRE_H - 28
 
-const TABLE_X = 24
-const TABLE_Y = GRID_Y + PANEL + 46
-const TABLE_W = STAGE_W - 48
-const TABLE_H = STAGE_H - TABLE_Y - 18
+const TABLE_X = MARGIN
+const TABLE_Y = GRID_Y + PANEL + 24
+const TABLE_W = STAGE_W - MARGIN * 2
+const TABLE_H = STAGE_H - TABLE_Y - 14
 /**
  * Six across rather than eight. Twenty-four entries fitted, and every one of them was
  * too small to read from the back of a room — which makes the table decoration rather
@@ -403,15 +423,6 @@ const ratio = computed(() => {
 
 const STAGES = ['text', 'tokens', 'table', 'codes', 'encoded', 'decoded'] as const
 const STAGE_NAMES = ['Message', 'Tokens', 'Counts', 'Codes', 'Encoded', 'Decoded'] as const
-const PHASE_NAMES = [
-  'the message',
-  'cut into tokens',
-  'counted, most common first',
-  'short codes for common tokens',
-  'the message as bits',
-  'decoded, character for character',
-] as const
-
 /** Tweened by GSAP, read by the draw loop. Nothing here is reactive on purpose. */
 const anim = { scan: 0, encode: 0, decode: 0, badge: 0 }
 let flyers: { type: TokenType; t: number }[] = []
@@ -517,16 +528,6 @@ function selectStage(n: number) {
   goToStage(target)
 }
 
-function phaseName(): string {
-  if (!tl) return PHASE_NAMES[0]
-  const t = tl.time()
-  const l = tl.labels
-  for (let i = STAGES.length - 1; i > 0; i--) {
-    if (t >= l[STAGES[i]] - 0.01) return PHASE_NAMES[i]
-  }
-  return t > 0.01 ? 'scanning' : PHASE_NAMES[0]
-}
-
 // --- Drawing --------------------------------------------------------------------
 
 const stageCanvas = ref<HTMLCanvasElement>()
@@ -573,14 +574,6 @@ function smoothstep(a: number, b: number, x: number) {
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
-}
-
-function caption(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, colour = colours.dim, size = 14) {
-  ctx.fillStyle = colour
-  ctx.font = uiFont(size, '600')
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillText(text, x, y)
 }
 
 function panel(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
@@ -656,12 +649,11 @@ function drawTable(ctx: CanvasRenderingContext2D) {
     const arrived = smoothstep(0.82, 1, flyers[TABLE_SLOTS - 1].t)
     ctx.globalAlpha = arrived
     ctx.fillStyle = colours.dim
-    ctx.font = uiFont(21)
+    ctx.font = uiFont(26)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(`+ ${spare} rarer tokens`, x, y - 11)
-    ctx.font = uiFont(16)
-    ctx.fillText('longer codes', x, y + 14)
+    ctx.fillText(`+ ${spare} rarer`, x, y - 16)
+    ctx.fillText('tokens', x, y + 16)
     ctx.globalAlpha = 1
   }
 }
@@ -669,35 +661,35 @@ function drawTable(ctx: CanvasRenderingContext2D) {
 function drawEntry(ctx: CanvasRenderingContext2D, type: TokenType, alpha: number, codeAlpha: number) {
   const sx = TABLE_X + (type.slot % TABLE_COLS) * SLOT_W
   const sy = TABLE_Y + Math.floor(type.slot / TABLE_COLS) * SLOT_H
-  const chipW = SLOT_W - 96
+  const chipW = SLOT_W - 108
 
   ctx.fillStyle = type.colour
   ctx.globalAlpha = alpha * (type.count > 1 ? 0.38 : 0.14)
-  roundRect(ctx, sx + 8, sy + 5, chipW, 34, 6)
+  roundRect(ctx, sx + 8, sy + 8, chipW, 43, 7)
   ctx.fill()
   ctx.globalAlpha = alpha * (type.count > 1 ? 0.85 : 0.35)
   ctx.strokeStyle = type.colour
   ctx.lineWidth = 1.5
-  roundRect(ctx, sx + 8.75, sy + 5.75, chipW - 1.5, 32.5, 6)
+  roundRect(ctx, sx + 8.75, sy + 8.75, chipW - 1.5, 41.5, 7)
   ctx.stroke()
 
   ctx.globalAlpha = alpha
   ctx.fillStyle = colours.text
-  ctx.font = gridFont(23)
+  ctx.font = gridFont(28)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(type.label, sx + 8 + chipW / 2, sy + 22, chipW - 12)
+  ctx.fillText(type.label, sx + 8 + chipW / 2, sy + 29, chipW - 14)
 
   ctx.fillStyle = colours.dim
-  ctx.font = uiFont(21)
+  ctx.font = uiFont(25)
   ctx.textAlign = 'left'
-  ctx.fillText(`×${type.count}`, sx + chipW + 18, sy + 22)
+  ctx.fillText(`×${type.count}`, sx + chipW + 20, sy + 29)
 
   if (codeAlpha > 0.01) {
     ctx.globalAlpha = alpha * codeAlpha
     ctx.fillStyle = colours.accent
-    ctx.font = bitFont(24)
-    ctx.fillText(type.code, sx + 10, sy + 57, SLOT_W - 24)
+    ctx.font = bitFont(30)
+    ctx.fillText(type.code, sx + 10, sy + 74, SLOT_W - 24)
   }
   ctx.globalAlpha = 1
 }
@@ -755,25 +747,43 @@ function drawRibbon(ctx: CanvasRenderingContext2D) {
  * the one thing it is for.
  */
 function drawCentre(ctx: CanvasRenderingContext2D) {
-  const m = model.value!
   panel(ctx, CENTRE_X, CENTRE_Y, CENTRE_W, CENTRE_H)
-  caption(ctx, 'THE MESSAGE AS BITS', CENTRE_X, CENTRE_Y - 12, colours.dim, 13)
   drawRibbon(ctx)
+  if (anim.badge <= 0.01) return
 
+  const shown = 1 + (ratio.value - 1) * anim.badge
+  ctx.globalAlpha = anim.badge
+  ctx.fillStyle = colours.good
+  ctx.font = uiFont(50, '700')
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  if (anim.badge > 0.01) {
-    const shown = 1 + (ratio.value - 1) * anim.badge
-    ctx.globalAlpha = anim.badge
-    ctx.fillStyle = colours.good
-    ctx.font = uiFont(46, '700')
-    ctx.fillText(`${shown.toFixed(1)}× smaller`, CENTRE_X + CENTRE_W / 2, BADGE_Y)
-    ctx.globalAlpha = 1
-  } else {
-    ctx.fillStyle = colours.dim
-    ctx.font = uiFont(15)
-    ctx.fillText(`${m.placed.length} tokens waiting for their codes`, CENTRE_X + CENTRE_W / 2, BADGE_Y)
-  }
+  ctx.fillText(`${shown.toFixed(1)}× smaller`, CENTRE_X + CENTRE_W / 2, BADGE_Y)
+  ctx.globalAlpha = 1
+}
+
+/**
+ * The round trip, asserted on the panel that has to prove it. Sits on the frame of the
+ * decoded grid rather than above it, so the panels can start at the top of the stage.
+ */
+function drawVerdict(ctx: CanvasRenderingContext2D) {
+  const m = model.value!
+  if (anim.decode <= 0.999) return
+  const text = m.roundTrips ? '✓ identical' : '✗ mismatch'
+  const colour = m.roundTrips ? colours.good : colours.warn
+  ctx.font = uiFont(21, '600')
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const w = ctx.measureText(text).width + 30
+  const cx = RIGHT_X + PANEL - w / 2 - 14
+  const cy = GRID_Y + PANEL - 4
+  ctx.fillStyle = colours.panel
+  roundRect(ctx, cx - w / 2, cy - 18, w, 36, 18)
+  ctx.fill()
+  ctx.strokeStyle = colour
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  ctx.fillStyle = colour
+  ctx.fillText(text, cx, cy + 1)
 }
 
 /** A token in flight: the same chip the table will show, mid-journey. */
@@ -860,7 +870,6 @@ function draw() {
 
   // Source panel: the text is always there; the boxes arrive with the scan.
   panel(ctx, LEFT_X, GRID_Y, PANEL, PANEL)
-  caption(ctx, `THE MESSAGE · ${m.sample.unit.toUpperCase()}`, LEFT_X, GRID_Y - 12, colours.dim, 13)
   drawGrid(ctx, LEFT_X, () => 1, i => Math.max(0, Math.min(1, scanHead - i)))
 
   if (anim.scan > 0.001 && anim.scan < 0.999) {
@@ -870,29 +879,15 @@ function draw() {
   }
 
   panel(ctx, RIGHT_X, GRID_Y, PANEL, PANEL)
-  const done = anim.decode > 0.999
-  caption(ctx,
-    done ? `DECODED  ${m.roundTrips ? '✓ identical' : '✗ mismatch'}` : 'DECODED',
-    RIGHT_X, GRID_Y - 12, done ? (m.roundTrips ? colours.good : colours.warn) : colours.dim, 13)
   drawGrid(ctx, RIGHT_X,
     i => Math.max(0, Math.min(1, decHead - i)),
     i => Math.max(0, Math.min(1, decHead - i)))
 
   drawCentre(ctx)
-
-  caption(ctx,
-    `EVERY DISTINCT TOKEN, MOST COMMON FIRST · ${m.types.length} OF ${total}`,
-    TABLE_X, TABLE_Y - 12, colours.dim, 13)
   drawTable(ctx)
-
   drawFlyers(ctx)
   drawDecoders(ctx)
-
-  ctx.fillStyle = colours.accent
-  ctx.font = uiFont(13, '600')
-  ctx.textAlign = 'right'
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillText(phaseName().toUpperCase(), STAGE_W - 24, GRID_Y - 12)
+  drawVerdict(ctx)
 }
 
 // --- Wiring ----------------------------------------------------------------------
@@ -949,11 +944,16 @@ onUnmounted(() => {
 <template>
   <SlideLayout column>
     <div class="huff">
-      <canvas ref="stageCanvas" />
+      <div class="stage-wrap">
+        <canvas ref="stageCanvas" />
+      </div>
 
       <div class="controls">
         <div class="picker">
-          <span class="lead">message</span>
+          <!-- What this text is and what a symbol is for it: the only two captions the
+               stage was carrying that said anything, so they live over the picker that
+               changes them. -->
+          <span class="desc">{{ sample.credit }} · by {{ sample.unit }}</span>
           <div class="group">
             <button
               v-for="s in SAMPLE_TEXTS" :key="s.id"
@@ -961,10 +961,9 @@ onUnmounted(() => {
               @click="sampleId = s.id"
             >{{ s.label }}</button>
           </div>
-          <span class="credit">{{ sample.credit }}</span>
         </div>
 
-        <div class="group stages">
+        <div class="group">
           <!-- Picking a state plays the animation to it, in whichever direction; the
                arrow keys drive the same thing through the deck's fragment. -->
           <button
@@ -983,27 +982,37 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   width: 100%;
   height: 100%;
   min-height: 0;
+}
+
+/* Gives the canvas a definite box to fit inside. With `max-width` and `max-height` both
+   at 100% the canvas scales to fill whichever dimension binds first and keeps its aspect,
+   so no space is left over on either axis. */
+.stage-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
 canvas {
   max-width: 100%;
-  max-height: 66vh;
+  max-height: 100%;
   border-radius: 8px;
   border: 1px solid var(--border);
 }
 
 .controls {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.4rem 1.4rem;
-  font-size: 0.58rem;
+  gap: 0.35rem 1.2rem;
   color: var(--text-secondary);
 }
 
@@ -1011,36 +1020,40 @@ canvas {
   white-space: nowrap;
 }
 
+/*
+ * The description sits above the buttons that change it — and must never be the reason
+ * the control row wraps. `min-width: 0` lets the column shrink to its button group, and
+ * the label ellipsises into whatever is left; a wrap here costs a whole line of canvas
+ * height, which is far more than the tail of a credit is worth.
+ */
 .picker {
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
-.lead {
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 0.5rem;
-}
-
-.credit {
+.desc {
+  font-size: 0.56rem;
   font-style: italic;
-  font-size: 0.52rem;
+  padding-left: 0.1rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Segmented group: one control with several states, rather than several buttons. */
 .group {
   display: flex;
+  flex: none;
 }
 
-.stages {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-}
-
+/* Natural widths, not six equal columns: equalising them to the longest label cost about
+   90px, which is the difference between one row and two on a laptop. */
 .seg {
-  padding: 0.18rem 0.55rem;
-  font-size: 0.56rem;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.66rem;
   border-radius: 0;
   border-right-width: 0;
 }
