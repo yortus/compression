@@ -28,6 +28,7 @@ import Optimisation from '../components/slides/Optimisation.vue'
 import HuffmanBuild from '../components/slides/HuffmanBuild.vue'
 import WavesIntro from '../components/slides/WavesIntro.vue'
 import Dct1D from '../components/slides/Dct1D.vue'
+import Basis2D from '../components/slides/Basis2D.vue'
 import Basis64 from '../components/slides/Basis64.vue'
 import JpegPipeline from '../components/slides/JpegPipeline.vue'
 
@@ -239,6 +240,15 @@ export const SLIDES: SlideDef[] = [
     controls: ['image', 'quality', 'block'],
   },
   {
+    id: 'basis-2d',
+    act: 'fourier',
+    title: 'From Waves to Patterns',
+    subtitle: 'One dimension, crossed with itself',
+    component: Basis2D,
+    tag: 'core',
+    fragments: 2,
+  },
+  {
     id: 'dct-2d',
     act: 'fourier',
     title: 'DCT',
@@ -251,11 +261,13 @@ export const SLIDES: SlideDef[] = [
     id: 'basis-64',
     act: 'fourier',
     title: 'The 64 Patterns',
-    subtitle: 'Adding a block back together, one at a time',
+    subtitle: 'Apart, thinned out, and back together',
     component: Basis64,
     tag: 'core',
-    controls: ['image', 'block'],
-    fragments: 2,
+    // Quality matters here now: it decides how many patterns survive the middle act.
+    controls: ['image', 'quality', 'block'],
+    // One fragment per phase, so the arrow keys drive the animation like any other build.
+    fragments: 4,
   },
   {
     id: 'quantisation',

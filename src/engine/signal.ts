@@ -68,6 +68,21 @@ export function basisVector(k: number, n = SIGNAL_LENGTH): number[] {
   return out
 }
 
+/**
+ * Basis wave k without its orthonormal scale factor — the raw cosine, ranging -1 to 1.
+ *
+ * `basisVector` carries the alpha term that makes the transform orthonormal, which is
+ * correct for arithmetic and wrong for drawing: it makes the flat wave shorter than the
+ * others for reasons that have nothing to do with the picture. This is the shape alone,
+ * and it is what the 2-D basis is literally the outer product of —
+ * `cosineShape(u)[x] * cosineShape(v)[y]` is exactly the pattern JPEG's `basisFunction`
+ * draws, which `roundtrip.test.ts` checks rather than takes on trust.
+ */
+export function cosineShape(k: number, n = SIGNAL_LENGTH): number[] {
+  const cos = cosTable(n)
+  return Array.from({ length: n }, (_, i) => cos[k * n + i])
+}
+
 /** Basis wave k scaled by its coefficient — one of the layers in the stack. */
 export function component(coeffs: readonly number[], k: number): number[] {
   const basis = basisVector(k, coeffs.length)

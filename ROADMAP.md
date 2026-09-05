@@ -167,8 +167,9 @@ show exactly that comparison.
 | `waves-intro` | Data as superposition. Draw a signal, watch it decompose | core |
 | `dct-1d` | 1-D forward/inverse with a "how many coefficients?" slider | core |
 | `blocks` | Why 8x8 at all — moved here, since blocks only matter once there is a transform | core; reuse `Step3Blocks` |
+| `basis-2d` | One dimension crossed with itself: the 64 patterns built as every pairing of the same eight waves | core |
 | `dct-2d` | 2-D DCT on the selected block | core; reuse `Step4DCT` |
-| `basis-64` | The 64 basis images, animated build-up, click to add one at a time | core; extend `Step4DCT`'s `drawBasis` |
+| `basis-64` | The per-block round trip as one animation: block flies apart into 64 patterns, quantisation discards most, survivors fly back and reconstruct. Block picked from the image on the same slide | core |
 | `quantisation` | Psychovisual again: drop high frequencies, watch quality and bits move together | core; reuse `Step5Quantization` |
 | `rle-on-coeffs` | RLE over coefficients in *raster* order — a modest win. Callback: RLE failed on raw pixels, so JPEG **manufactures** the runs rather than hoping for them | core |
 | `zigzag` | The reorder insight; run-length histogram raster vs zigzag, side by side | core; reuse `Step6Zigzag` plus new comparison |
@@ -432,6 +433,106 @@ Numbers worth keeping: at 16 colours the peppers photograph goes 768.1 KB → 25
 47.7 KB (16.12:1) across the three BMP variants. The old idealised palette slide claimed 23.5:1 for
 the same thing; the difference is real BMP overhead — two bytes per run, per-row end markers, the
 palette and the header.
+
+### Rework — `basis-64` as a two-way animation ✅ done
+The slide was a static grid with a build-up slider. It is now the whole per-block round trip on one
+stage: the block flies apart into its 64 patterns (forward DCT), quantisation empties and dims most
+of them, and the survivors fly back together into a reconstruction — arriving coarsest-first, so the
+block appears as a blur and sharpens. The full image sits on the left with a block grid over it, so
+a block can be chosen without leaving the slide, and the quality slider now drives the middle act
+(Q5 keeps 1 pattern at max error 21/255; Q98 keeps 21 at max error 1/255).
+
+The four phases are wired to the deck's own fragments, so arrow keys drive the animation exactly
+like every other build, with play / reverse / scrub controls alongside for replaying a beat.
+
+**Two things that had to be got right rather than merely drawn:**
+
+- **Additive blending cannot reconstruct the block.** Piling `lighter`-blended sprites together
+  looks like superposition, but coefficients are signed and roughly half of them subtract — a
+  glowing heap would have been a very convincing lie. The flying tiles are narrative; the panel
+  they land in runs a real inverse DCT over the coefficients that have arrived, weighted by each
+  sprite's own tween value, so every intermediate frame is a true partial reconstruction and the
+  last frame is exactly what a decoder would produce. Additive blending survives only as a bloom
+  during flight.
+- **The discarded patterns have to be visible before they are discarded.** The first version drew
+  every tile from the *post*-quantisation coefficients, so the sixty patterns that quantisation
+  kills were already blank squares and the middle act faded out nothing. Each tile now has a
+  before and an after, and the quantise phase crossfades between them — which is the act.
+
+Two smaller notes: the tiles are drawn as their true contributions (each one is `inverseDCT` of a
+block holding only that coefficient, so they cannot drift out of agreement with the sum), with a
+single shared gain applied so the fine ones are visible without distorting their sizes relative to
+each other; and the slide picks an interesting block on first mount, because block 0 is the
+top-left corner and on most photographs is flat sky.
+
+**Not Pixi, deliberately.** Sixty-four 8×8 sprites is nothing, 2D canvas has position, scale, alpha
+and additive blending, and the rest of the deck is 2D canvas — a WebGL scene graph would be a
+second rendering model maintained for one slide. GSAP still does the tweening. `pixi.js` and
+`src/rendering/PixiCanvas.vue` therefore remain unused.
+
+### Rework — `basis-2d`, and the greenscale knobs ✅ done
+Act 4 gained a slide between `blocks` and `dct-2d`. `waves-intro` and `dct-1d` build a signal out of
+cosines along a line; a block is not a line, and the step across was being skipped. `basis-2d`
+animates it: the same eight waves along the top and down the side, and the 8×8 grid filling in as
+every pairing of them, ending with all 64 patterns at full brightness. Click any pattern to see the
+two waves it came from.
+
+The claim is exact rather than illustrative — each cell is computed as
+`cosineShape(u)[x] * cosineShape(v)[y]`, and the test suite checks that this reproduces the engine's
+own `basisFunction` for all 64 patterns to nine decimals. It also earns a fact the deck had not
+stated: because the patterns are products, the 2-D transform *separates* into eight 1-D transforms
+along the rows and eight down the columns, which is why no encoder builds a 64×64 matrix.
+
+This is where the `unit patterns` toggle went. It never belonged on `basis-64`, whose subject is the
+animated round trip of one particular block, not the shape of the basis itself.
+
+**Greenscale is now two constants in `src/rendering/shade.ts`,** shared by both pattern slides.
+`CONTRAST` (1.5) stretches photographs, blocks and coefficient contributions, which sit in a narrow
+band around mid-grey and read much better pushed. `PATTERN_CONTRAST` (1) leaves the basis patterns
+alone: they already swing the full range, so any stretch clips them, and at 1.5 the smooth cosines
+turned into hard stripes — which destroys the one thing `basis-2d` exists to show. `GREEN` set to
+null reverts everything to greyscale.
+
+### Fixes — `basis-64` timeline, crispness and the implode ✅ done
+The implode used to clone: a copy flew to the reconstruction while the original tile stayed put, so
+the grid looked untouched at the end — as though the coefficients had been used without being spent.
+The tiles themselves now make the journey and the grid empties as they go, mirroring the explode.
+Each cell keeps an accent outline once quantisation has run, so the grid still records which
+patterns went even after they have left.
+
+**Click-to-toggle individual patterns is gone, and so is the overhead it justified.** Two reasons.
+It had become unusable: after the implode change the grid is empty at the final state, so there was
+nothing visible to click, and at the quantised state the reconstruction has not been built yet, so
+clicking changed nothing on screen. Worse, the accounting behind it — 6 bits for a zigzag prefix
+against 64 for an arbitrary set — is a model this deck goes on to contradict, since `zigzag`
+measures that JPEG spends nothing on positions beyond the run lengths it was already emitting. The
+slide now reports no primer at all, with a comment and a line of prose saying that naming the
+survivors is a real cost this slide does not model and the next two are entirely about.
+
+### Fixes — `basis-64` timeline and canvas crispness ✅ done
+Three bugs, found by driving the slide rather than reading it.
+
+- **`STAGES[0]` was `'start'`, which was never added as a label.** GSAP resolves an unknown label
+  to the end of the timeline instead of failing, so the slide loaded with the playhead parked at
+  the end and the first transition ran backwards from there. Every entry in `STAGES` now has a
+  matching `addLabel`.
+- **The `done` label was hardcoded at 4.4s while the last implode finishes at 4.68s.** Any block
+  whose surviving coefficients reach far along the zigzag was declared finished with several
+  patterns still in flight: the reconstruction was genuinely incomplete and leftover flyers sat on
+  top of the panel. It hid on photographs, which keep about nine coefficients all near the front of
+  the scan, and showed immediately on pixel art, which keeps thirty-four. Label positions are now
+  derived from the timing constants so they cannot drift apart again.
+- **Both pattern slides were resampling their whole canvas.** The stage is authored at a fixed
+  1100×560 and shown at about 775px wide, so the browser scaled the backing store down smoothly on
+  every frame — `imageSmoothingEnabled` does not touch that. The backing store is now sized from the
+  element's real size times `devicePixelRatio`, with the context scaled to match, and the 8×8 panels
+  are filled cell by cell on whole device pixels rather than upscaled with `drawImage` (170 does not
+  divide by 8).
+
+Also: changing the image resets the block index to 0, which on the pixel-art sample is blank
+background, so the auto-pick now re-runs on image change — and it excludes blank blocks before
+ranking rather than merely ranking them low, since that sample is about nine tenths white and a
+plain 80th percentile still landed on empty space.
 
 ### P6 — Publish and polish
 Learn mode as the off-presentation default, `base` config and static deploy, share metadata,

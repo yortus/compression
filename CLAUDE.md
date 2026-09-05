@@ -99,7 +99,23 @@ slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
   change the RLE pair count, and the DCT *reduces* order-0 entropy rather than increasing it.
 - **Rendering is plain 2D canvas** (`getContext('2d')` + `putImageData`) inside each step, with a
   `watch` + `onMounted` redraw pair. `src/rendering/PixiCanvas.vue` and the `pixi.js` dependency
-  are currently unused; `gsap` is used only by `Step6Zigzag.vue`.
+  are still unused — `basis-64` animates 64 sprites on a 2D canvas instead, deliberately, to avoid
+  keeping a WebGL scene graph alive for one slide. `gsap` is used by `Step6Zigzag.vue` and
+  `Basis64.vue`, the latter driving a GSAP timeline whose labels are wired to the deck's fragments.
+- **Canvases that are CSS-scaled must size their backing store to the display size.**
+  `imageSmoothingEnabled = false` governs drawing *into* a canvas, not the browser's scaling
+  *of* one — a 1100px-wide backing store shown at 775px gets resampled smoothly every frame,
+  which softens everything. `basis-2d` and `basis-64` size the store from
+  `getBoundingClientRect() * devicePixelRatio` and scale the context, keeping the drawing code in
+  fixed logical units. Their 8×8 panels also use `fillBlock8`, which snaps every cell to whole
+  device pixels, because a station size that does not divide by 8 bands hard-edged art.
+- **Greenscale lives in `src/rendering/shade.ts`** — `GREEN` (null for grey), `CONTRAST` for
+  imagery and `PATTERN_CONTRAST` for basis patterns, which clip if stretched. Used by `basis-2d`
+  and `basis-64` only; the engine's own `channelToImageData` stays greyscale for every other slide.
+- **`basis-64` computes its reconstruction, it does not blend it.** DCT coefficients are signed, so
+  additively blending the flying pattern sprites would look like superposition while being wrong.
+  The sprites are narrative; the reconstruction panel runs a real `inverseDCT` weighted by each
+  sprite's tween value. Keep it that way if the animation is ever changed.
 
 ### Adding or reordering a slide
 

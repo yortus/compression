@@ -10,8 +10,10 @@ import { compareImages } from '../compare'
 import { buildHuffman, countSymbols, encodeSymbols, decodeBits, payloadBits } from './huffman'
 import {
   SIGNAL_PRESETS, SIGNAL_LENGTH, dct1d, idct1d, partialReconstruct, rmse, energyRank,
+  cosineShape,
 } from '../signal'
 import { sampleBlockIndices } from '../jpeg/pipeline'
+import { basisFunction } from '../jpeg/dct'
 import {
   encodeRle8, decodeRle8, rleWouldExpand, rowStride, uncompressedSize,
 } from '../formats/bmp'
@@ -445,5 +447,32 @@ describe('plane correlation', () => {
 
     const ycbcr = imageToYcbcr(img)
     expect(Math.abs(correlation(ycbcr.y, ycbcr.cb))).toBeLessThan(0.5)
+  })
+})
+
+describe('2-D basis as an outer product of 1-D waves', () => {
+  // The `basis-2d` slide animates the 64 JPEG patterns being formed by multiplying a
+  // vertical cosine by a horizontal one. That is only worth showing if it is exactly
+  // true, so it is checked against the engine's own basis rather than asserted.
+  it("reproduces every one of JPEG's 64 basis patterns", () => {
+    for (let u = 0; u < 8; u++) {
+      for (let v = 0; v < 8; v++) {
+        const down = cosineShape(u, 8)
+        const across = cosineShape(v, 8)
+        const expected = basisFunction(u, v)
+        for (let x = 0; x < 8; x++) {
+          for (let y = 0; y < 8; y++) {
+            expect(128 + 127 * down[x] * across[y]).toBeCloseTo(expected[x][y], 9)
+          }
+        }
+      }
+    }
+  })
+
+  it('gives the flat pattern a constant value and the finest one full swing', () => {
+    const flat = cosineShape(0, 8)
+    expect(Math.max(...flat) - Math.min(...flat)).toBeCloseTo(0, 12)
+    const finest = cosineShape(7, 8)
+    expect(Math.max(...finest) - Math.min(...finest)).toBeGreaterThan(1.9)
   })
 })

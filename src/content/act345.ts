@@ -48,17 +48,34 @@ export const ACT345_PROSE: ProseRegistry = {
       'coefficient is the same size and there is nothing safe to drop. The transform here is ' +
       'DCT-II, exactly the one JPEG uses; JPEG just runs it in two dimensions.',
   },
-  'basis-64': {
-    speaker: 'The 64 patterns. Click them in and out; watch the block appear.',
+  'basis-2d': {
+    speaker: 'No new idea here. The 64 patterns are every pairing of the same eight waves.',
     learner:
-      'In two dimensions the basis is 64 little patterns, and every 8×8 block in every image is ' +
-      'some weighted sum of them. Build one up in zigzag order and the block is recognisable long ' +
-      'before the patterns run out — the rest are correcting detail nobody looks for. The bar under ' +
-      'each pattern shows how much of it this particular block contains, and it is nearly all in the ' +
-      'top-left corner. Note what happens to the numbers if you pick patterns individually instead ' +
-      'of keeping a prefix: an arbitrary selection needs a 64-bit map explaining which ones you sent, ' +
-      'while "the first twelve" needs a single small count. That is why JPEG drops the tail rather ' +
-      'than cherry-picking.',
+      'This is the step between one dimension and two, and it is smaller than it looks. A block ' +
+      'is not a line, so the cosines from the last two slides cannot be applied to it directly — ' +
+      'but nothing new has to be invented. Take the same eight waves running down the block, take ' +
+      'the same eight running across, and multiply every pairing of them together: that is all 64 ' +
+      'of JPEG’s patterns, and the animation is doing exactly that multiplication rather than ' +
+      'illustrating it. Click any pattern to see the two waves it came from. This also explains a ' +
+      'practical thing about encoders: because the patterns are products, the two-dimensional ' +
+      'transform separates into eight one-dimensional transforms along the rows and eight down the ' +
+      'columns, which is enormously cheaper than treating a block as one 64-value vector.',
+  },
+  'basis-64': {
+    speaker: 'Arrow keys drive it: fly apart, quantise, fly back. Pick any block from the image.',
+    learner:
+      'The whole per-block round trip, in one animation. Press forward and the block flies apart ' +
+      'into the 64 fixed patterns it is made of — that is the forward DCT, and nothing has been ' +
+      'lost yet. Press again and quantisation happens: every coefficient that rounded to zero ' +
+      'fades out and stays behind, which at ordinary quality settings is most of them. Press again ' +
+      'and the survivors fly back together into a picture that is nearly, but not quite, the one ' +
+      'we started with. They arrive coarsest first, so you can watch the block appear as a blur ' +
+      'and then sharpen. Drag the quality slider and the middle act changes: at low quality only a ' +
+      'handful of patterns make the journey, and the error at the end grows to match. Click any ' +
+      'block in the image on the left to try another one — flat sky needs almost nothing, and a ' +
+      'sprite with hard edges shows the ringing that JPEG is famous for. One cost is missing from ' +
+      'the numbers here on purpose: the encoder still has to say which patterns survived, and ' +
+      'that turns out to be the interesting part. It is what the next two slides are about.',
   },
   'quantisation': {
     speaker: 'Divide and round. This is the only place image quality is actually spent.',
