@@ -8,11 +8,8 @@ import Step6Zigzag from '../components/steps/Step6Zigzag.vue'
 import Step7RLE from '../components/steps/Step7RLE.vue'
 import Step9Summary from '../components/steps/Step9Summary.vue'
 
-import RleText from '../components/slides/RleText.vue'
-import RleTwoWay from '../components/slides/RleTwoWay.vue'
+import RleBitmap from '../components/slides/RleBitmap.vue'
 import RlePrimer from '../components/slides/RlePrimer.vue'
-import BmpRgb from '../components/slides/BmpRgb.vue'
-import BmpPalette from '../components/slides/BmpPalette.vue'
 import LossyVsLossless from '../components/slides/LossyVsLossless.vue'
 
 import ColourPlanes from '../components/slides/ColourPlanes.vue'
@@ -21,10 +18,12 @@ import ChromaSubsample from '../components/slides/ChromaSubsample.vue'
 
 import TitleSlide from '../components/slides/TitleSlide.vue'
 import WhyCare from '../components/slides/WhyCare.vue'
+import Summarising from '../components/slides/Summarising.vue'
 import InfoTheory from '../components/slides/InfoTheory.vue'
 import Timeline from '../components/slides/Timeline.vue'
 import Optimisation from '../components/slides/Optimisation.vue'
 import HuffmanCodes from '../components/slides/HuffmanCodes.vue'
+import Lz77 from '../components/slides/Lz77.vue'
 import WavesIntro from '../components/slides/WavesIntro.vue'
 import Dct1D from '../components/slides/Dct1D.vue'
 import Basis2D from '../components/slides/Basis2D.vue'
@@ -37,9 +36,9 @@ import PointsSlide from '../components/slides/PointsSlide.vue'
 
 export const ACTS: Act[] = [
   { id: 'framing', label: 'Framing', title: 'Why compress anything?' },
-  { id: 'simple', label: 'Simple', title: 'Start simple: run-length encoding' },
+  { id: 'simple', label: 'Simple', title: 'The simplest idea, and where it breaks' },
   { id: 'colour', label: 'Colour', title: 'Reframing colour' },
-  { id: 'entropy', label: 'Entropy', title: 'Spending bits where they count' },
+  { id: 'codes', label: 'Codes', title: 'Finding the redundancy' },
   { id: 'fourier', label: 'Waves', title: "Fourier's insight" },
   { id: 'jpeg', label: 'JPEG', title: 'Putting it all together' },
   { id: 'conclusions', label: 'Wider', title: 'Looking wider' },
@@ -70,6 +69,15 @@ export const SLIDES: SlideDef[] = [
     tag: 'core',
     controls: ['image', 'quality'],
     fragments: 2,
+  },
+  {
+    id: 'summarising',
+    act: 'framing',
+    title: 'You Already Do This',
+    subtitle: 'Summaries, shorthand, and the line between them',
+    component: Summarising,
+    tag: 'core',
+    fragments: 5,
   },
   {
     id: 'info-theory',
@@ -108,22 +116,15 @@ export const SLIDES: SlideDef[] = [
     controls: ['image'],
   },
   {
-    id: 'rle-text',
+    id: 'rle-bitmap',
     act: 'simple',
     title: 'Run-Length Encoding',
-    subtitle: 'The simplest thing that could possibly work',
-    component: RleText,
+    subtitle: 'The same encoder, four ways of saying what a pixel is',
+    component: RleBitmap,
     tag: 'core',
-    fragments: 2,
-  },
-  {
-    id: 'rle-two-way',
-    act: 'simple',
-    title: 'Both Directions',
-    subtitle: 'Encode is only half of a codec',
-    component: RleTwoWay,
-    tag: 'core',
-    fragments: 2,
+    // No image or quality control: the artwork belongs to this slide, which is what lets
+    // the whole byte stream fit on screen and lets the picker span the outcome space.
+    fragments: 4,
   },
   {
     id: 'rle-primer',
@@ -131,27 +132,7 @@ export const SLIDES: SlideDef[] = [
     title: 'The Shared Primer',
     subtitle: 'What both sides must already agree on',
     component: RlePrimer,
-    tag: 'core',
-    fragments: 2,
-  },
-  {
-    id: 'bmp-rgb',
-    act: 'simple',
-    title: 'A Real Bitmap',
-    subtitle: '24-bit BMP, and what RLE does to it',
-    component: BmpRgb,
-    tag: 'core',
-    controls: ['image'],
-    fragments: 2,
-  },
-  {
-    id: 'bmp-palette',
-    act: 'simple',
-    title: 'Pixels Become Indices',
-    subtitle: 'The three ways BMP can store the same picture',
-    component: BmpPalette,
-    tag: 'core',
-    controls: ['image'],
+    tag: 'optional',
     fragments: 2,
   },
   {
@@ -195,7 +176,7 @@ export const SLIDES: SlideDef[] = [
   },
   {
     id: 'huffman-codes',
-    act: 'entropy',
+    act: 'codes',
     title: 'Huffman Coding',
     subtitle: 'Short codes for common things, long codes for rare ones',
     component: HuffmanCodes,
@@ -203,6 +184,15 @@ export const SLIDES: SlideDef[] = [
     // One fragment per phase of the round trip, so the arrow keys drive the animation
     // like the build on any other slide.
     fragments: 6,
+  },
+  {
+    id: 'lz77',
+    act: 'codes',
+    title: 'The Sliding Window',
+    subtitle: 'Redundancy you have already seen, and half of gzip',
+    component: Lz77,
+    tag: 'core',
+    fragments: 5,
   },
   {
     id: 'waves-intro',
@@ -273,8 +263,8 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'rle-on-coeffs',
     act: 'fourier',
-    title: 'Run-Length Encoding',
-    subtitle: 'Collapsing the zeros',
+    title: 'Collapsing the Zeros',
+    subtitle: 'The same run-length coder, on quantised coefficients',
     component: Step7RLE,
     tag: 'core',
     controls: ['image', 'quality', 'block'],

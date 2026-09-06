@@ -1,5 +1,5 @@
 import sharp from 'sharp'
-import { SPRITES_8, SPRITES_16, spriteColor } from './pixelart.mjs'
+import { SPRITES_8, SPRITES_16, SPRITES_32, spriteColor } from './pixelart.mjs'
 import { existsSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -29,8 +29,8 @@ function rng(seed) {
   }
 }
 
-async function raw(buf, name) {
-  await sharp(buf, { raw: { width: SIZE, height: SIZE, channels: 3 } })
+async function raw(buf, name, width = SIZE, height = width) {
+  await sharp(buf, { raw: { width, height, channels: 3 } })
     .png()
     .toFile(join(samplesDir, name))
   console.log(`  ✓ ${name}`)
@@ -284,77 +284,82 @@ async function generateSweep() {
 
 
 /**
- * Pixel art on white, every sprite aligned to the 8x8 grid.
+ * Pixel art, packed edge to edge, every sprite aligned to the 8x8 grid.
  *
- * Alignment is the point: a JPEG block then contains either blank white, one whole 8x8
- * sprite, or one quadrant of a 16x16 one — so the DCT and quantisation slides can show a
+ * Alignment is the point: a JPEG block then contains exactly one 8x8 sprite, one quadrant
+ * of a 16x16, or one sixteenth of a 32x32 — so the DCT and quantisation slides can show a
  * block whose content is actually identifiable. Flat sprites give an almost pure DC
  * coefficient; the busy multicolour ones light up the high frequencies.
+ *
+ * Unlike every other sample this one is not 512px. Nothing here needs to be: the sprites
+ * are the subject, and a 512px canvas only bought blank margins, which price into the
+ * ratio as free wins and teach the audience nothing. `blobToImageData` caps at 512 rather
+ * than resizing up to it, so a smaller image loads at its native pixels.
+ *
+ * The packer is a row-major greedy fill rather than the old scatter-with-padding: it walks
+ * every cell in order, drops the largest sprite that fits in the space still free, and
+ * falls back to an 8x8 — which always fits — so the sheet finishes with no gaps at all.
  */
-async function generatePixelArt() {
-  const buf = Buffer.alloc(SIZE * SIZE * 3, 255)
-  const cells = SIZE / 8
-  const occupied = new Set()
+const PIXELART_SIZE = 192
 
-  const put = (sprite, cx, cy) => {
-    const rows = sprite
+async function generatePixelArt() {
+  const cells = PIXELART_SIZE / 8
+  const buf = Buffer.alloc(PIXELART_SIZE * PIXELART_SIZE * 3, 255)
+  const filled = new Uint8Array(cells * cells)
+  const rand = rng(20260906)
+
+  const put = (rows, cx, cy) => {
     for (let y = 0; y < rows.length; y++) {
       for (let x = 0; x < rows[y].length; x++) {
         const colour = spriteColor(rows[y][x])
         if (!colour) continue
-        const px = cx * 8 + x
-        const py = cy * 8 + y
-        if (px >= SIZE || py >= SIZE) continue
-        const i = (py * SIZE + px) * 3
+        const i = ((cy * 8 + y) * PIXELART_SIZE + cx * 8 + x) * 3
         buf[i] = colour[0]; buf[i + 1] = colour[1]; buf[i + 2] = colour[2]
       }
     }
   }
 
-  const free = (cx, cy, w, h) => {
-    // One blank cell of padding, so no two sprites share a block.
-    for (let y = cy - 1; y <= cy + h; y++) {
-      for (let x = cx - 1; x <= cx + w; x++) {
-        if (occupied.has(`${x},${y}`)) return false
-      }
+  const fits = (cx, cy, w) => {
+    if (cx + w > cells || cy + w > cells) return false
+    for (let y = cy; y < cy + w; y++) {
+      for (let x = cx; x < cx + w; x++) if (filled[y * cells + x]) return false
     }
     return true
   }
 
-  const claim = (cx, cy, w, h) => {
-    for (let y = cy; y < cy + h; y++) {
-      for (let x = cx; x < cx + w; x++) occupied.add(`${x},${y}`)
+  // Each size gets its own shuffled bag, dealt round-robin, so the sheet uses the whole
+  // cast before repeating anyone rather than leaning on whichever sprite the RNG liked.
+  const bag = sprites => {
+    const deck = Object.values(sprites)
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      ;[deck[i], deck[j]] = [deck[j], deck[i]]
+    }
+    let next = 0
+    return () => deck[next++ % deck.length]
+  }
+  const deal = { 1: bag(SPRITES_8), 2: bag(SPRITES_16), 4: bag(SPRITES_32) }
+
+  const counts = { 1: 0, 2: 0, 4: 0 }
+  for (let cy = 0; cy < cells; cy++) {
+    for (let cx = 0; cx < cells; cx++) {
+      if (filled[cy * cells + cx]) continue
+      const roll = rand()
+      const size = (roll < 0.22 && fits(cx, cy, 4)) ? 4
+        : (roll < 0.7 && fits(cx, cy, 2)) ? 2
+          : 1
+      for (let y = cy; y < cy + size; y++) {
+        for (let x = cx; x < cx + size; x++) filled[y * cells + x] = 1
+      }
+      put(deal[size](), cx, cy)
+      counts[size]++
     }
   }
 
-  const rand = rng(20240904)
-  const small = Object.values(SPRITES_8)
-  const large = Object.values(SPRITES_16)
-
-  // Large sprites first — they are harder to fit once the board fills up.
-  const plan = [
-    ...large.map(sp => ({ sp, w: 2, h: 2 })),
-    ...large.map(sp => ({ sp, w: 2, h: 2 })),
-    ...small.map(sp => ({ sp, w: 1, h: 1 })),
-    ...small.map(sp => ({ sp, w: 1, h: 1 })),
-    ...small.map(sp => ({ sp, w: 1, h: 1 })),
-  ]
-
-  let placed = 0
-  for (const { sp, w, h } of plan) {
-    for (let attempt = 0; attempt < 250; attempt++) {
-      const cx = 1 + Math.floor(rand() * (cells - w - 2))
-      const cy = 1 + Math.floor(rand() * (cells - h - 2))
-      if (!free(cx, cy, w, h)) continue
-      claim(cx, cy, w, h)
-      put(sp, cx, cy)
-      placed++
-      break
-    }
-  }
-
-  await raw(buf, 'pixelart.png')
-  console.log(`    (${placed} sprites, all on the 8px grid)`)
+  await raw(buf, 'pixelart.png', PIXELART_SIZE)
+  const total = counts[1] + counts[2] + counts[4]
+  console.log(`    (${PIXELART_SIZE}×${PIXELART_SIZE}, ${total} sprites: `
+    + `${counts[4]}×32px, ${counts[2]}×16px, ${counts[1]}×8px, no blank cells)`)
 }
 
 const COMMONS = {

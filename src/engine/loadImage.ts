@@ -42,7 +42,7 @@ export const SAMPLES = [
   // Row 2 — flat-colour graphics.
   { name: 'Graphic', url: '/samples/graphic.png', note: 'flat colour and hard edges' },
   { name: 'Flat', url: '/samples/flat.png', note: 'solid blocks — the case RLE was invented for' },
-  { name: 'Pixel art', url: '/samples/pixelart.png', note: 'sprites aligned to the 8×8 block grid' },
+  { name: 'Pixel art', url: '/samples/pixelart.png', note: 'sprites packed onto the 8×8 block grid — the only sample under 512px' },
   { name: 'Line art', url: '/samples/lineart.png', note: 'two colours, long runs, palettises exactly' },
   { name: 'Mosaic', url: '/samples/mosaic.png', note: 'exact repetition, few colours' },
   // Row 3 — structure and stress tests.

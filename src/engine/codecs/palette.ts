@@ -28,11 +28,10 @@ interface ColorEntry {
   count: number
 }
 
-function uniqueColors(img: ImageData): ColorEntry[] {
+function uniqueColors(rgb: ArrayLike<number>): ColorEntry[] {
   const counts = new Map<number, number>()
-  const { data } = img
-  for (let i = 0; i < data.length; i += 4) {
-    const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2]
+  for (let i = 0; i < rgb.length; i += 3) {
+    const key = (rgb[i] << 16) | (rgb[i + 1] << 8) | rgb[i + 2]
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
   const entries: ColorEntry[] = []
@@ -65,8 +64,22 @@ function channelRange(bucket: ColorEntry[]): { channel: 'r' | 'g' | 'b'; range: 
  * buckets, then average each one. Every source colour ends up in exactly one bucket, so
  * the colour → index mapping falls out directly and no nearest-neighbour search is needed.
  */
-export function palettise(img: ImageData, maxColors: number): PaletteResult {
-  const colors = uniqueColors(img)
+/**
+ * The median cut itself, over three-bytes-per-pixel RGB.
+ *
+ * Split out from `palettise` so callers that have pixels but no `ImageData` can use it —
+ * the run-length slide's artwork, and the test suite, which runs in node where the DOM
+ * type does not exist.
+ */
+export interface RgbPaletteResult {
+  indices: Uint8Array
+  palette: number[][]
+  lossy: boolean
+  sourceColors: number
+}
+
+export function palettiseRgb(rgb: ArrayLike<number>, maxColors: number): RgbPaletteResult {
+  const colors = uniqueColors(rgb)
   const target = Math.max(2, Math.min(256, maxColors))
 
   let buckets: ColorEntry[][] = [colors]
@@ -115,20 +128,30 @@ export function palettise(img: ImageData, maxColors: number): PaletteResult {
     }
   })
 
-  const { data, width, height } = img
-  const indices = new Uint8Array(width * height)
-  for (let p = 0, i = 0; i < data.length; i += 4, p++) {
-    indices[p] = lookup.get((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]) ?? 0
+  const indices = new Uint8Array(rgb.length / 3)
+  for (let p = 0, i = 0; i < rgb.length; i += 3, p++) {
+    indices[p] = lookup.get((rgb[i] << 16) | (rgb[i + 1] << 8) | rgb[i + 2]) ?? 0
   }
 
   return {
     indices,
     palette,
-    width,
-    height,
     lossy: colors.length > palette.length,
     sourceColors: colors.length,
   }
+}
+
+/** The same reduction over an `ImageData`, which is what the JPEG-side slides hold. */
+export function palettise(img: ImageData, maxColors: number): PaletteResult {
+  const { data, width, height } = img
+  const rgb = new Uint8Array(width * height * 3)
+  for (let p = 0, i = 0; i < data.length; i += 4, p += 3) {
+    rgb[p] = data[i]
+    rgb[p + 1] = data[i + 1]
+    rgb[p + 2] = data[i + 2]
+  }
+  const result = palettiseRgb(rgb, maxColors)
+  return { ...result, width, height }
 }
 
 /** Bits per index, given the palette size — this is what makes the index stream small. */

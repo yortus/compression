@@ -49,6 +49,42 @@ export function decodePairs(pairs: readonly RunPair[]): number[] {
  * Run count without materialising the runs — the image-scale slides only need the
  * number, and 786 KB of pixels would otherwise become hundreds of thousands of objects.
  */
+/**
+ * The runs themselves, with where each one starts.
+ *
+ * `encodePairs` throws the positions away, which is all a codec needs and not enough to
+ * draw with: the run-length slide tints each run in a hex dump of the source, so it needs
+ * to know which bytes belong to which run. Computed once per input rather than per frame.
+ */
+export interface RunSpan {
+  start: number
+  length: number
+  value: number
+}
+
+export function runSpans(data: ArrayLike<number>): RunSpan[] {
+  const spans: RunSpan[] = []
+  let i = 0
+  while (i < data.length) {
+    const value = data[i]
+    let length = 1
+    while (i + length < data.length && data[i + length] === value && length < MAX_RUN) length++
+    spans.push({ start: i, length, value })
+    i += length
+  }
+  return spans
+}
+
+/** The pair stream as the bytes it would actually be written as: count, value, count… */
+export function spansToBytes(spans: readonly RunSpan[]): Uint8Array {
+  const out = new Uint8Array(spans.length * 2)
+  for (let i = 0; i < spans.length; i++) {
+    out[i * 2] = spans[i].length
+    out[i * 2 + 1] = spans[i].value
+  }
+  return out
+}
+
 export function countRuns(data: ArrayLike<number>): number {
   if (data.length === 0) return 0
   let runs = 0

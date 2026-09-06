@@ -17,6 +17,25 @@ export const ACT0_PROSE: ProseRegistry = {
       'of that. That ratio is not a detail of the file format; it is the reason the web has ' +
       'images at all, and the same argument applies with more force to audio and video.',
   },
+  'summarising': {
+    speaker: 'Two ways to shorten a document. Only one of them gives it back.',
+    learner:
+      'Before any bits: you have compressed things before. Shortening a document is ' +
+      'compression, and it splits along exactly the line the rest of this talk turns on. ' +
+      'Rewrite an aerodrome forecast in METAR and a pilot reads it back word for word — that is ' +
+      'lossless coding against a codebook both sides learned in advance, which is the same ' +
+      'bargain a Huffman code table strikes, one layer up in meaning instead of in bits. Write a ' +
+      'précis of the Gettysburg Address and you will never get the address back. Step to the last ' +
+      'phase and watch both routes run the expansion: one panel becomes the original, the other ' +
+      'simply stops. Notice too that the picker is a diagonal rather than a ladder. Chess ' +
+      'notation compresses a game nine-fold and summarises terribly, because in a game record the ' +
+      'moves *are* the message; prose is the other way round and has no agreed shorthand at all. ' +
+      'Which route is available to you is a fact about the domain, not about your cleverness. One ' +
+      'last thing, and it is the reason the rest of the talk is built the way it is: this slide ' +
+      'can measure exactly how much smaller a summary is, and it cannot measure whether the ' +
+      'summary is any good. Nothing can, except a person. Every lossy codec in this deck ends up ' +
+      'containing a model of one.',
+  },
   'info-theory': {
     speaker: 'Shannon 1948. Entropy is the floor — no encoder gets under it.',
     learner:

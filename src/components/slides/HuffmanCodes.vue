@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, watch } from 'vue'
 import gsap from 'gsap'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import { useDeck } from '../../deck/useDeck'
+import { usePhaseStage } from '../../deck/usePhaseStage'
 import { useStat } from '../../stats/useStats'
 import { SAMPLE_TEXTS, sampleById, type SampleText } from '../../content/corpus'
 import { tokenise, graphemes, utf8Bytes } from '../../engine/codecs/tokenise'
+import { drawStamp, stampBounds } from '../../rendering/stamp'
 import {
   buildHuffman,
   countSymbols,
@@ -32,10 +33,10 @@ import {
  * property of the data, not of the coder.
  *
  * **The numbers are measured, never asserted.** The ratio in the badge is
- * `utf8Bytes(message) * 8 / payloadBits`, and the decode is a real `decodeBits` walk that
- * the slide checks against the original — the tick beside "decoded" is a round-trip
- * assertion, not decoration. The code table is not waved away either, but it is priced in
- * the HUD rather than on the stage: see `drawCentre`.
+ * `utf8Bytes(message) * 8 / payloadBits`, and the LOSSLESS badge on the decoded panel is
+ * a real `decodeBits` walk compared against the original, not a constant — if the coder
+ * ever broke it would read LOSSY. The code table is not waved away either, but it is
+ * priced in the HUD rather than on the stage: see `drawCentre`.
  *
  * **One 2D canvas, GSAP tweening plain objects the draw loop reads.** Same model as
  * `basis-64`, for the same reasons: several hundred moving labels are nothing for canvas
@@ -43,8 +44,6 @@ import {
  * one rendering model. The backing store is sized to the real display size (see
  * CLAUDE.md) so nothing gets resampled.
  */
-
-const deck = useDeck()
 
 // --- Stage geometry, in canvas logical units ---------------------------------
 
@@ -85,10 +84,10 @@ const CENTRE_H = PANEL
 const RIBBON_X = CENTRE_X + 16
 const RIBBON_Y = CENTRE_Y + 16
 const RIBBON_W = CENTRE_W - 32
-const RIBBON_H = 374
+const RIBBON_H = 340
 const RIBBON_FONT = 24
-/** The badge sits alone under the ribbon — the arithmetic behind it lives in the HUD. */
-const BADGE_Y = CENTRE_Y + CENTRE_H - 28
+/** The ratio stamp sits alone under the ribbon — the arithmetic is in the HUD. */
+const BADGE_Y = CENTRE_Y + CENTRE_H - 62
 
 const TABLE_X = MARGIN
 const TABLE_Y = GRID_Y + PANEL + 24
@@ -429,10 +428,6 @@ let flyers: { type: TokenType; t: number }[] = []
 let codeReveal: { a: number }[] = []
 let decoders: { p: Placed; at: number; t: number }[] = []
 
-let tl: gsap.core.Timeline | null = null
-let playhead: gsap.core.Tween | null = null
-const stage = ref(deck.learnMode.value ? STAGES.length - 1 : Math.min(STAGES.length - 1, deck.fragment.value))
-
 const SCAN_AT = 0.1
 const SCAN_DUR = 1.8
 const FLY_DUR = 0.7
@@ -443,10 +438,9 @@ const DEC_FLIGHT = 0.55
 /** How many of the decoded tokens actually get a sprite; the rest simply appear. */
 const DEC_SPRITES = 44
 
-function buildTimeline() {
-  tl?.kill()
+function build() {
   const m = model.value
-  if (!m) return
+  if (!m) return null
 
   anim.scan = 0; anim.encode = 0; anim.decode = 0; anim.badge = 0
   flyers = m.types.map(type => ({ type, t: 0 }))
@@ -461,7 +455,7 @@ function buildTimeline() {
   const flyStagger = Math.min(0.04, 1.7 / Math.max(1, n))
   const codeStagger = Math.min(0.03, 1.2 / Math.max(1, n))
 
-  tl = gsap.timeline({ paused: true })
+  const tl = gsap.timeline({ paused: true })
   // Every entry in STAGES must exist as a label — GSAP silently resolves an unknown one
   // to the end of the timeline.
   tl.addLabel('text', 0)
@@ -472,14 +466,14 @@ function buildTimeline() {
 
   const flyAt = tokensAt + 0.2
   flyers.forEach((f, i) => {
-    tl!.fromTo(f, { t: 0 }, { t: 1, duration: FLY_DUR, ease: 'power2.inOut' }, flyAt + i * flyStagger)
+    tl.fromTo(f, { t: 0 }, { t: 1, duration: FLY_DUR, ease: 'power2.inOut' }, flyAt + i * flyStagger)
   })
   const tableAt = flyAt + (n - 1) * flyStagger + FLY_DUR + 0.1
   tl.addLabel('table', tableAt)
 
   const codeAt = tableAt + 0.2
   codeReveal.forEach((c, i) => {
-    tl!.fromTo(c, { a: 0 }, { a: 1, duration: CODE_DUR, ease: 'power1.out' }, codeAt + i * codeStagger)
+    tl.fromTo(c, { a: 0 }, { a: 1, duration: CODE_DUR, ease: 'power1.out' }, codeAt + i * codeStagger)
   })
   const codesAt = codeAt + (n - 1) * codeStagger + CODE_DUR + 0.1
   tl.addLabel('codes', codesAt)
@@ -503,57 +497,10 @@ function buildTimeline() {
   tl.addLabel('decoded', decodedAt)
   // Something has to occupy the final instant or the timeline ends before the label.
   tl.to({}, { duration: 0.01 }, decodedAt)
-
-  goToStage(stage.value, true)
-}
-
-function goToStage(n: number, instant = false) {
-  if (!tl) return
-  playhead?.kill()
-  playhead = null
-  const label = STAGES[Math.max(0, Math.min(STAGES.length - 1, n))]
-  // No duration given, so GSAP moves the playhead at natural speed: picking a state
-  // *plays* the animation to it, forwards or backwards.
-  if (instant) tl.seek(label)
-  else playhead = tl.tweenTo(label)
-  dirty = true
-}
-
-function selectStage(n: number) {
-  const target = Math.max(0, Math.min(STAGES.length - 1, n))
-  // Picking the state you are already in replays the step that got you there.
-  if (target === stage.value && target > 0 && tl) tl.seek(STAGES[target - 1])
-  stage.value = target
-  if (!deck.learnMode.value) deck.fragment.value = target
-  goToStage(target)
+  return tl
 }
 
 // --- Drawing --------------------------------------------------------------------
-
-const stageCanvas = ref<HTMLCanvasElement>()
-let scale = 1
-let observer: ResizeObserver | null = null
-
-/**
- * A full frame is around two thousand `fillText` calls — two grids of text, a ribbon of
- * a thousand bits and two dozen table entries. That is fine while something is moving and
- * pure waste for the minutes a presenter spends parked on one state, so the loop only
- * redraws while the playhead is running or something has explicitly changed.
- */
-let dirty = true
-
-function resizeCanvas() {
-  const canvas = stageCanvas.value
-  if (!canvas) return
-  const width = canvas.getBoundingClientRect().width
-  if (!width) return
-  const next = (width * (window.devicePixelRatio || 1)) / STAGE_W
-  if (Math.abs(next - scale) < 0.001) return
-  scale = next
-  canvas.width = Math.round(STAGE_W * scale)
-  canvas.height = Math.round(STAGE_H * scale)
-  dirty = true
-}
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   if (w <= 0 || h <= 0) return
@@ -752,38 +699,32 @@ function drawCentre(ctx: CanvasRenderingContext2D) {
   if (anim.badge <= 0.01) return
 
   const shown = 1 + (ratio.value - 1) * anim.badge
-  ctx.globalAlpha = anim.badge
-  ctx.fillStyle = colours.good
-  ctx.font = uiFont(50, '700')
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(`${shown.toFixed(1)}× smaller`, CENTRE_X + CENTRE_W / 2, BADGE_Y)
-  ctx.globalAlpha = 1
+  drawStamp(ctx, `${shown.toFixed(1)}× SMALLER`, CENTRE_X + CENTRE_W / 2, BADGE_Y,
+    colours.good, { alpha: anim.badge })
 }
 
 /**
- * The round trip, asserted on the panel that has to prove it. Sits on the frame of the
- * decoded grid rather than above it, so the panels can start at the top of the stage.
+ * The verdict, stamped across the panel that has to earn it.
+ *
+ * It fades in over the last of the decode, once the right-hand grid is full and the claim
+ * can be checked by eye — the stamp is the payoff of watching the round trip land, not a
+ * label on an empty panel.
+ *
+ * The flag is measured: a real `decodeBits` walk compared against the original, so if the
+ * coder ever broke this would read LOSSY.
+ *
+ * There is no room below the decoded grid before the frequency table starts, so it
+ * straddles the panel's lower edge.
  */
-function drawVerdict(ctx: CanvasRenderingContext2D) {
+function drawLoss(ctx: CanvasRenderingContext2D) {
   const m = model.value!
-  if (anim.decode <= 0.999) return
-  const text = m.roundTrips ? '✓ identical' : '✗ mismatch'
-  const colour = m.roundTrips ? colours.good : colours.warn
-  ctx.font = uiFont(21, '600')
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  const w = ctx.measureText(text).width + 30
-  const cx = RIGHT_X + PANEL - w / 2 - 14
-  const cy = GRID_Y + PANEL - 4
-  ctx.fillStyle = colours.panel
-  roundRect(ctx, cx - w / 2, cy - 18, w, 36, 18)
-  ctx.fill()
-  ctx.strokeStyle = colour
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-  ctx.fillStyle = colour
-  ctx.fillText(text, cx, cy + 1)
+  const text = m.roundTrips ? 'LOSSLESS' : 'LOSSY'
+  // Struck across the bottom-right corner of the decoded grid. It covers a few characters
+  // of the last line, which is the intent — by the time it lands the match has been made.
+  const { w, h } = stampBounds(ctx, text)
+  drawStamp(ctx, text, RIGHT_X + PANEL - w / 2 - 16, GRID_Y + PANEL - h / 2 - 12,
+    m.roundTrips ? colours.good : colours.warn,
+    { alpha: smoothstep(0.94, 1, anim.decode) })
 }
 
 /** A token in flight: the same chip the table will show, mid-journey. */
@@ -853,14 +794,9 @@ function drawDecoders(ctx: CanvasRenderingContext2D) {
   ctx.globalAlpha = 1
 }
 
-function draw() {
-  const canvas = stageCanvas.value
+function draw(ctx: CanvasRenderingContext2D) {
   const m = model.value
-  if (!canvas || !m) return
-  if (!dirty && !playhead?.isActive() && !tl?.isActive()) return
-  dirty = false
-  const ctx = canvas.getContext('2d')!
-  ctx.setTransform(scale, 0, 0, scale, 0, 0)
+  if (!m) return
   ctx.fillStyle = colours.bg
   ctx.fillRect(0, 0, STAGE_W, STAGE_H)
 
@@ -887,90 +823,61 @@ function draw() {
   drawTable(ctx)
   drawFlyers(ctx)
   drawDecoders(ctx)
-  drawVerdict(ctx)
+  drawLoss(ctx)
 }
 
 // --- Wiring ----------------------------------------------------------------------
 
-/** Cleared on unmount, so a font that loads late cannot resurrect a dead timeline. */
-let alive = true
-
-function rebuild() {
-  if (!alive) return
-  rebuildModel()
-  buildTimeline()
-  dirty = true
-}
-
-watch(sample, rebuild)
-watch(() => deck.fragment.value, n => {
-  const target = Math.max(0, Math.min(STAGES.length - 1, n))
-  if (target === stage.value) return
-  stage.value = target
-  goToStage(target)
-})
-watch(() => deck.learnMode.value, on => {
-  if (!on) return
-  stage.value = STAGES.length - 1
-  goToStage(STAGES.length - 1)
+const { canvas, stage, progress, selectStage, scrub, rebuild } = usePhaseStage({
+  stages: STAGES,
+  width: STAGE_W,
+  height: STAGE_H,
+  beforeBuild: () => { readColours(); rebuildModel() },
+  build,
+  draw,
 })
 
-onMounted(() => {
-  readColours()
-  const canvas = stageCanvas.value
-  if (canvas) {
-    canvas.width = STAGE_W
-    canvas.height = STAGE_H
-    resizeCanvas()
-    observer = new ResizeObserver(resizeCanvas)
-    observer.observe(canvas)
-  }
-  rebuild()
-  // Grid metrics come from measureText, so a font arriving late would leave the layout
-  // fitted to the fallback. Cheap to redo once.
-  document.fonts?.ready?.then(rebuild)
-  gsap.ticker.add(draw)
-})
-
-onUnmounted(() => {
-  alive = false
-  gsap.ticker.remove(draw)
-  observer?.disconnect()
-  playhead?.kill()
-  tl?.kill()
-})
+watch(sample, () => rebuild(), { immediate: true })
 </script>
 
 <template>
   <SlideLayout column>
     <div class="huff">
       <div class="stage-wrap">
-        <canvas ref="stageCanvas" />
+        <canvas ref="canvas" />
       </div>
 
-      <div class="controls">
-        <div class="picker">
+      <div class="stage-controls">
+        <div class="stage-picker">
           <!-- What this text is and what a symbol is for it: the only two captions the
                stage was carrying that said anything, so they live over the picker that
                changes them. -->
           <span class="desc">{{ sample.credit }} · by {{ sample.unit }}</span>
-          <div class="group">
+          <div class="seg-group">
             <button
               v-for="s in SAMPLE_TEXTS" :key="s.id"
-              class="seg" :class="{ on: sampleId === s.id }"
+              :class="{ on: sampleId === s.id }"
               @click="sampleId = s.id"
             >{{ s.label }}</button>
           </div>
         </div>
 
-        <div class="group">
-          <!-- Picking a state plays the animation to it, in whichever direction; the
-               arrow keys drive the same thing through the deck's fragment. -->
-          <button
-            v-for="(name, i) in STAGE_NAMES" :key="i"
-            class="seg" :class="{ on: stage === i }"
-            @click="selectStage(i)"
-          >{{ name }}</button>
+        <!-- Slider and buttons drive one playhead: the buttons jump to a labelled phase,
+             the slider goes anywhere, and each shows what the other did. -->
+        <div class="stage-picker">
+          <input
+            class="stage-scrub" type="range" min="0" max="1000" step="1"
+            aria-label="Scrub the animation"
+            :value="Math.round(progress * 1000)"
+            @input="scrub(Number(($event.target as HTMLInputElement).value) / 1000)"
+          />
+          <div class="seg-group">
+            <button
+              v-for="(name, i) in STAGE_NAMES" :key="i"
+              :class="{ on: stage === i }"
+              @click="selectStage(i)"
+            >{{ name }}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1000,76 +907,12 @@ onUnmounted(() => {
   justify-content: center;
 }
 
+/* Sized in JS from the wrapper — see `usePhaseStage`. `display: block` only stops the
+   inline-element baseline gap from making the wrapper a few pixels taller than the canvas. */
 canvas {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
   border-radius: 8px;
   border: 1px solid var(--border);
 }
 
-.controls {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.35rem 1.2rem;
-  color: var(--text-secondary);
-}
-
-.controls > * {
-  white-space: nowrap;
-}
-
-/*
- * The description sits above the buttons that change it — and must never be the reason
- * the control row wraps. `min-width: 0` lets the column shrink to its button group, and
- * the label ellipsises into whatever is left; a wrap here costs a whole line of canvas
- * height, which is far more than the tail of a credit is worth.
- */
-.picker {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.desc {
-  font-size: 0.56rem;
-  font-style: italic;
-  padding-left: 0.1rem;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Segmented group: one control with several states, rather than several buttons. */
-.group {
-  display: flex;
-  flex: none;
-}
-
-/* Natural widths, not six equal columns: equalising them to the longest label cost about
-   90px, which is the difference between one row and two on a laptop. */
-.seg {
-  padding: 0.22rem 0.6rem;
-  font-size: 0.66rem;
-  border-radius: 0;
-  border-right-width: 0;
-}
-
-.seg:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.seg:last-child {
-  border-radius: 0 4px 4px 0;
-  border-right-width: 1px;
-}
-
-.seg.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
 </style>

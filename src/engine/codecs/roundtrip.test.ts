@@ -18,6 +18,15 @@ import {
   encodeRle8, decodeRle8, rleWouldExpand, rowStride, uncompressedSize,
 } from '../formats/bmp'
 import { imageToYcbcr } from '../jpeg/colorspace'
+import { encodeLz77, decodeLz77 } from './lz77'
+import { abbreviate, expand } from './abbreviate'
+import { runSpans, spansToBytes } from './rle'
+import { tokenise } from './tokenise'
+import { LZ77_TEXTS } from '../../content/corpus'
+import { SUMMARY_TEXTS } from '../../content/summaries'
+import {
+  SPRITES, REPRESENTATIONS, MAX_PALETTE, spritePixels, spriteBytes, sourceRgb, decodedRgb,
+} from '../../content/sprites'
 
 /**
  * These tests exist for one reason: the deck stands in front of a room and claims every
@@ -474,5 +483,108 @@ describe('2-D basis as an outer product of 1-D waves', () => {
     expect(Math.max(...flat) - Math.min(...flat)).toBeCloseTo(0, 12)
     const finest = cosineShape(7, 8)
     expect(Math.max(...finest) - Math.min(...finest)).toBeGreaterThan(1.9)
+  })
+})
+
+// ---------------------------------------------------------------------------------
+// The four Act 0-3 exploration slides. Each one claims a round trip on screen, so each
+// one gets a test: a claim the deck makes to a room is a claim worth checking in CI.
+// ---------------------------------------------------------------------------------
+
+describe('LZ77 over the sliding window', () => {
+  it('round trips every sample text at every window size the slide offers', () => {
+    for (const sample of LZ77_TEXTS) {
+      const symbols = tokenise(sample.text, sample.tokeniser)
+      for (const window of [32, 128, 512]) {
+        const opts = { window, minMatch: 3, maxMatch: 258 }
+        const tokens = encodeLz77(symbols, opts)
+        expect(decodeLz77(tokens).join(''), `${sample.id} @ ${window}`).toBe(symbols.join(''))
+      }
+    }
+  })
+
+  it('resolves overlapping matches, which is how it subsumes run-length encoding', () => {
+    // "go back 1 and copy 5" has to keep reading what it has just written.
+    const symbols = [...'aaaaaaaaaaaa']
+    const tokens = encodeLz77(symbols, { window: 32, minMatch: 3, maxMatch: 258 })
+    expect(tokens.some(t => t.kind === 'match' && t.distance < t.length)).toBe(true)
+    expect(decodeLz77(tokens).join('')).toBe(symbols.join(''))
+  })
+
+  it('finds nothing in noise, so every token is a literal', () => {
+    const noise = LZ77_TEXTS.find(t => t.id === 'noise')!
+    const tokens = encodeLz77(tokenise(noise.text, noise.tokeniser), {
+      window: 512, minMatch: 3, maxMatch: 258,
+    })
+    expect(tokens.every(t => t.kind === 'literal')).toBe(true)
+  })
+})
+
+describe('phrase abbreviation', () => {
+  it('expands every codebook back to the original text', () => {
+    for (const sample of SUMMARY_TEXTS) {
+      const { text: coded } = abbreviate(sample.text, sample.dictionary)
+      expect(expand(coded, sample.dictionary), sample.id).toBe(sample.text)
+    }
+  })
+
+  it('prefers the longest phrase, so a codebook may contain both a phrase and its prefix', () => {
+    const dictionary = [
+      { phrase: 'wind from 240 degrees', code: '240' },
+      { phrase: 'wind', code: 'W' },
+    ]
+    const { text } = abbreviate('wind from 240 degrees and wind', dictionary)
+    expect(text).toBe('240 and W')
+    expect(expand(text, dictionary)).toBe('wind from 240 degrees and wind')
+  })
+})
+
+describe('run-length encoding over pixel art', () => {
+  it('round trips every sprite in every representation', () => {
+    for (const sprite of SPRITES) {
+      const pixels = spritePixels(sprite)
+      for (const rep of REPRESENTATIONS) {
+        const bytes = spriteBytes(pixels, rep.id)
+        const spans = runSpans(bytes)
+        const back = decodePairs(spans.map(s => ({ count: s.length, value: s.value })))
+        expect(back, `${sprite.id} as ${rep.id}`).toEqual(Array.from(bytes))
+      }
+    }
+  })
+
+  it('spans cover the input exactly once', () => {
+    for (const sprite of SPRITES) {
+      const bytes = spriteBytes(spritePixels(sprite), 'rgba')
+      const spans = runSpans(bytes)
+      expect(spans.reduce((n, s) => n + s.length, 0)).toBe(bytes.length)
+      expect(spansToBytes(spans).length).toBe(spans.length * 2)
+    }
+  })
+
+  it('reproduces the picture except where the palette could not hold its colours', () => {
+    // Compared as pixels rather than bytes: the question is whether the audience gets
+    // their image back, which is what the slide's LOSSLESS stamp reports. The colour
+    // representations are always exact; the palette row is exact only when the artwork
+    // has no more colours than the palette can hold.
+    for (const sprite of SPRITES) {
+      const pixels = spritePixels(sprite)
+      for (const rep of REPRESENTATIONS) {
+        const bytes = spriteBytes(pixels, rep.id)
+        const back = Uint8Array.from(decodePairs(
+          runSpans(bytes).map(s => ({ count: s.length, value: s.value }))))
+        const decoded = decodedRgb(back, rep.id, pixels)
+        const same = Array.from(sourceRgb(pixels)).every((v, i) => v === decoded[i])
+        const shouldBeExact = rep.id !== 'palette' || !pixels.lossyPalette
+        expect(same, `${sprite.id} as ${rep.id}`).toBe(shouldBeExact)
+      }
+    }
+  })
+
+  it('only the gradient outgrows the palette', () => {
+    for (const sprite of SPRITES) {
+      const pixels = spritePixels(sprite)
+      expect(pixels.lossyPalette, sprite.id).toBe(sprite.id === 'gradient')
+      expect(pixels.palette.length).toBeLessThanOrEqual(MAX_PALETTE)
+    }
   })
 })

@@ -60,3 +60,120 @@ button.active {
 input[type="range"] {
   accent-color: var(--accent);
 }
+
+/*
+ * Segmented control: one control with several states, rather than several buttons.
+ *
+ * Shared because every exploration slide has at least two of them — a picker and a row of
+ * phase buttons — and they must look identical across slides or the phase row stops
+ * reading as "where the animation is". Natural widths, not equal columns: equalising to
+ * the longest label costs about 90px, which is the difference between one row and two on
+ * a laptop, and a wrapped control row costs a whole line of canvas height.
+ */
+.seg-group {
+  display: flex;
+  flex: none;
+}
+
+.seg-group > button {
+  padding: 0.22rem 0.6rem;
+  font-size: 0.66rem;
+  border-radius: 0;
+  border-right-width: 0;
+}
+
+.seg-group > button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.seg-group > button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-right-width: 1px;
+}
+
+.seg-group > button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* The row a stage's controls live in: picker(s) on the left, phase buttons on the right. */
+.stage-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.2rem;
+  color: var(--text-secondary);
+}
+
+.stage-controls > * {
+  white-space: nowrap;
+}
+
+/*
+ * A caption above its picker. `min-width: 0` plus the ellipsis is what stops a long label
+ * being the thing that decides whether the control row wraps.
+ */
+.stage-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.stage-picker > .desc {
+  font-size: 0.56rem;
+  font-style: italic;
+  padding-left: 0.1rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Scrub bar for an animated stage, sitting where a picker's caption would.
+ *
+ * `align-self: stretch` rather than a width: the control column is sized by its segmented
+ * button group, and the slider takes whatever that turned out to be, so the two always line
+ * up however long the labels are.
+ */
+.stage-scrub {
+  align-self: stretch;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.56rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.stage-scrub::-webkit-slider-runnable-track {
+  height: 0.14rem;
+  border-radius: 0.07rem;
+  background: var(--border);
+}
+
+.stage-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-top: -0.13rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.stage-scrub::-moz-range-track {
+  height: 0.14rem;
+  border-radius: 0.07rem;
+  background: var(--border);
+}
+
+.stage-scrub::-moz-range-thumb {
+  width: 0.4rem;
+  height: 0.4rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+}

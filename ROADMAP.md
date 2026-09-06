@@ -152,12 +152,13 @@ its true yellow-to-blue ramp and Cr its cyan-to-red one — at which point it is
 that Y is the picture and the other two are tint. A greyscale toggle is kept so the presenter can
 show exactly that comparison.
 
-### Act 3 — Huffman (reuse and generalise)
+### Act 3 — Codes (delivered)
 
 | Id | Slide | Notes |
 |----|-------|-------|
-| `huffman-codes` | The whole round trip animated over real text in four languages: tokenise, count, code, encode, decode | core; `engine/codecs/huffman.ts` + `engine/codecs/tokenise.ts` |
-| `beyond-huffman` | Arithmetic / range / ANS in one slide: fractional bits, and why that matters | optional |
+| `huffman-codes` | ✅ The whole round trip animated over real text in four languages: tokenise, count, code, encode, decode | core |
+| `lz77` | ✅ The sliding window, with match arcs and a window-size knob; finishes by Huffman-coding its own token stream, which is DEFLATE | core |
+| ~~`arithmetic`~~ | Built, then cut — fractional bits are past what this deck needs to cover | dropped |
 
 The tree build was cut. It had its own slide — merge by merge, over editable text — and it
 answered a question the talk never asks: *how* the codes are chosen. What the audience needs is

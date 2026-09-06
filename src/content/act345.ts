@@ -24,6 +24,24 @@ export const ACT345_PROSE: ProseRegistry = {
       'second is the second bar under the badge: the decoder cannot read a single bit without the ' +
       'code table, so the table is part of the message, and on a short text it is the bigger half.',
   },
+  'lz77': {
+    speaker: 'Matches point back at what you have already seen. Shrink the window and watch them vanish.',
+    learner:
+      'Run-length encoding can only collapse repeats that touch each other, and Huffman only ' +
+      'cares how *often* a symbol appears, never where. LZ77 is the third answer to what counts ' +
+      'as redundant: anything already seen within a window can be pointed at instead of repeated, ' +
+      'as a back-reference saying go back this far and copy this much. Every curve on the left is ' +
+      'one of those references. On the repeated licence header there are three of them and they ' +
+      'sweep across the whole panel; on the noise there is not a single one. Shrink the window and ' +
+      'the long matches stop being reachable — the boilerplate falls from nearly three-to-one to ' +
+      'worse than it started, which is exactly why a real encoder has a window size and why it is ' +
+      'a memory-versus-ratio decision rather than a free parameter. Widening it is not free ' +
+      'either: every match pays for the reach in a wider distance field whether it uses it or not. ' +
+      'Then look at the last step. On its own, matching barely pays here — but it has reshaped the ' +
+      'data into a stream of very repetitive tokens, and running the Huffman coder from two slides ' +
+      'ago over that stream roughly doubles the result again. That pairing is DEFLATE, and it is ' +
+      'what gzip, zip, PNG and every compressed HTTP response actually ship.',
+  },
   'waves-intro': {
     speaker: 'Any signal is a sum of fixed cosines. Drag the slider, watch it assemble.',
     learner:

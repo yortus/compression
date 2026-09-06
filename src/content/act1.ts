@@ -1,30 +1,42 @@
 import type { ProseRegistry } from './types'
 
 /**
- * Act 1 — run-length encoding, told through Windows BMP.
+ * Act 1 — run-length encoding.
  *
- * The act used to invent its own toy codecs. Anchoring it to a real format is stronger,
- * because BMP settles the argument without our help: it has an uncompressed mode, a
- * palettised mode, and a run-length mode that works *only* on palettised images. We do
- * not have to claim that RLE needs a reframe first — the format's own compression field
- * says so, and has since 1990.
+ * Five slides became two. The act used to walk through RLE on text, then the round trip,
+ * then the escape byte, then a real 24-bit BMP, then the same picture palettised; all of
+ * that is now one slide with a representation toggle, because holding the encoder fixed
+ * and changing only what the bytes mean *is* the argument, and splitting it across five
+ * slides diluted it. What survives separately is the escape-byte gotcha, which is about
+ * shared primers rather than about run lengths.
+ *
+ * BMP is no longer the frame. It settled the argument nicely — the format has a run-length
+ * mode that works only on palettised images — but tying the act to one file format cost
+ * more than it bought, and the fact keeps its sentence in the prose below.
  */
 export const ACT1_PROSE: ProseRegistry = {
-  'rle-text': {
-    speaker: 'Simplest possible scheme. Works on runs, fails on everything else.',
+  'rle-bitmap': {
+    speaker: 'Same encoder throughout. Change what a pixel *is* and the ratio moves thirty-fold.',
     learner:
       'Run-length encoding is about the simplest compression there is: instead of writing the ' +
-      'same symbol over and over, write it once with a count. It is spectacular on data made of ' +
-      'long runs and actively harmful on data without them — every single character costs two ' +
-      'bytes instead of one. Try the presets: the same encoder halves one input and doubles another.',
-  },
-  'rle-two-way': {
-    speaker: 'Every codec is a pair. Encode is worthless without decode.',
-    learner:
-      'Compression is always a two-way transform. The encoder is only half of it; what makes a ' +
-      'scheme a codec rather than a mangling is that some decoder can walk the process backwards ' +
-      'and get the original bytes back. Here the output is decoded live and compared against the ' +
-      'input, character by character.',
+      'same byte over and over, write it once with a count. The encoder on this slide never ' +
+      'changes. What changes is what the bytes *mean*, and that alone takes the same picture from ' +
+      'sixteen-to-one down to half the size it started. The three rows go worst to best. Stored as ' +
+      '32-bit RGBA it is four bytes a pixel of red, green, blue and alpha interleaved, so ' +
+      'neighbouring bytes are four channels of four different things and almost no two in a row ' +
+      'are equal — nearly every byte becomes a count and a value, and the file grows. Split into ' +
+      'colour planes it is exactly the same bytes visited in a different order, and that alone is ' +
+      'often enough. As palette indices it is one small number per pixel, neighbours finally repeat, ' +
+      'and the runs the coder needed exist at last. That is the argument the whole talk runs on: ' +
+      'the win came from reframing the data, not from a cleverer encoder. ' +
+      'Then try the gradient, which fails twice over. Nothing repeats, so there is nothing for any ' +
+      'run-length coder to collapse — and it has 256 colours where the palette holds sixteen, so ' +
+      'the one row that *would* have found runs can only do it by throwing colour away. Watch the ' +
+      'decoded panel band, and the stamp turn from LOSSLESS to LOSSY. Palettising is usually a free ' +
+      'reframe and sometimes it is the lossy step. Note too that the palette has to travel with the ' +
+      'indices — it is in the band at the bottom, and counted as overhead in the numbers above. ' +
+      'Real formats do all of this: a Windows BMP offers BI_RLE8 and BI_RLE4 and no 24-bit ' +
+      'run-length mode at all, and now you can see why.',
   },
   'rle-primer': {
     speaker: 'Both sides need a shared convention. BMP’s is a count of zero.',
@@ -36,30 +48,6 @@ export const ACT1_PROSE: ProseRegistry = {
       'pixel data comes in pairs, and a count of zero is the escape: 00 00 ends the row, 00 01 ' +
       'ends the image, 00 02 is a jump, and 00 n means "n literal pixels follow". None of that is ' +
       'in the file — it is in the specification, which both ends read in advance.',
-  },
-  'bmp-rgb': {
-    speaker: 'Real 24-bit bitmap. Run-length code it and watch it grow.',
-    learner:
-      'Here is an actual BMP: a 54-byte header and then three bytes a pixel, rows padded out to a ' +
-      'four-byte boundary. Now point the run-length coder at it. In a photograph, neighbouring ' +
-      'bytes are almost never exactly equal — one count of sensor noise ends a run — so the ' +
-      'mean run length sits barely above one, and nearly every byte turns into a count and a ' +
-      'value. The file gets bigger. Nothing is wrong with the encoder; the data is the wrong ' +
-      'shape for it. And you could not save it this way even if you wanted to: BMP offers ' +
-      'BI_RLE8 and BI_RLE4 and no 24-bit run-length mode at all.',
-  },
-  'bmp-palette': {
-    speaker: 'Same encoder, different data. Three real files, three real sizes.',
-    learner:
-      'Nothing about the encoder changes on this slide. What changes is what the pixels are: ' +
-      'instead of three colour bytes, each pixel becomes one small index into a shared palette. ' +
-      'Two things follow. The obvious one is free — one byte a pixel instead of three is exactly ' +
-      '3:1 before any compression happens. The interesting one is that neighbouring pixels now ' +
-      'frequently share an index, so the runs RLE needed finally exist, and BI_RLE8 has something ' +
-      'to collapse. The palette has to travel with the file, and it is counted in the numbers ' +
-      'above. Watch what happens on a photograph at 256 colours: run-length coding makes it ' +
-      'bigger, and a real encoder responds by writing BI_RGB instead — its worst case is bounded ' +
-      'because it is allowed to decline.',
   },
   'lossy-vs-lossless': {
     speaker: 'Two families. Only one of them threw information away.',

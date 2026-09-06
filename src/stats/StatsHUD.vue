@@ -147,9 +147,16 @@ const primerPct = computed(() => (s.value ? Math.min(100 - payloadPct.value, (s.
   color: var(--text-secondary);
 }
 
+/* Both halves are coloured, because "lossless" is a result worth reading, not the
+   absence of one. Same two colours as the on-stage badge in `rendering/lossBadge.ts`. */
 .tag.lossy {
   color: var(--warning);
   border-color: var(--warning);
+}
+
+.tag.lossless {
+  color: var(--positive);
+  border-color: var(--positive);
 }
 
 .note {

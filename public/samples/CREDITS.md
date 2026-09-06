@@ -26,7 +26,7 @@ pixel-art sprites hand-drawn in `scripts/pixelart.mjs`. No licence consideration
 | `dither.png` | looks continuous but repeats nothing — defeats RLE; pairs against `gradient` |
 | `graphic.png` | flat colour and hard edges |
 | `flat.png` | solid blocks — the case RLE was invented for |
-| `pixelart.png` | sprites aligned to the 8×8 block grid, for the DCT and quantisation slides |
+| `pixelart.png` | 192×192, packed with 8/16/32px sprites on the 8×8 block grid, for the DCT and quantisation slides |
 | `lineart.png` | two colours, long runs — palettises exactly |
 | `mosaic.png` | exact repetition, few colours |
 | `text.png` | fine edges, where JPEG rings badly |

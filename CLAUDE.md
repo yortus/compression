@@ -40,9 +40,12 @@ broken types.
 Three layers, strictly one-directional:
 
 **`src/engine/*.ts` — pure functions, no Vue, no DOM** (beyond `ImageData` in/out).
-One file per pipeline stage: `colorspace` → `subsampling` → `blocks` → `dct` → `quantization` →
-`zigzag` → `rle` → `huffman`. `pipeline.ts` composes them; `types.ts` holds the shared shapes
-(`Block` is a row-major `number[][]` 8×8).
+`engine/jpeg/` is one file per pipeline stage: `colorspace` → `subsampling` → `blocks` → `dct` →
+`quantization` → `zigzag` → `rle` → `huffman`. `pipeline.ts` composes them; `types.ts` holds the
+shared shapes (`Block` is a row-major `number[][]` 8×8). `engine/codecs/` holds the general,
+format-independent coders the exploration slides use — `huffman`, `rle`, `lz77`, `arithmetic`,
+`abbreviate`, `entropy`, `palette`, `planes`, `tokenise` — every one of them with a working
+decoder and a round-trip case in `roundtrip.test.ts`.
 
 **`src/composables/useJpegPipeline.ts` — the single source of truth.** `createJpegPipeline()` is
 instantiated once in `App.vue` and `provide`d under `PIPELINE_KEY`; every step `inject`s it. It
@@ -57,6 +60,10 @@ owns the current slide and fragment and syncs them to the URL hash (`#/zigzag`, 
 loupe) and binds the keys. Slide components live in `src/components/slides/`; the older
 `src/components/steps/StepN*.vue` are the original JPEG walkthrough, still in use and reached
 through the same registry.
+
+**`src/rendering/` — the shared canvas vocabulary.** `usePhaseStage` (in `src/deck/`) owns the
+stage machine every exploration slide runs on; `textGrid`, `ribbon`, `stamp`, `tokenColours` and
+`shade` are the pieces they draw with. See "The exploration-slide pattern" below.
 
 **`src/stats/` — the always-on ratio.** A slide calls `useStat(id, () => StatSample)` in setup and
 its numbers appear in the HUD; `StatSample` keeps `overheadBits` separate from `encodedBits` so the
@@ -91,13 +98,22 @@ slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
   `sampleBlockIndices`, a golden-ratio sequence — *not* a fixed stride. Every sample image is 512px
   wide, so a channel is exactly 64 blocks across and a stride of `n / 64` silently measures one
   column of the image. That bug made line art report the same ratio at every quality setting.
-- **`engine/formats/bmp.ts` is real BMP arithmetic**, not BMP-flavoured prose: the 54-byte header,
-  four bytes per palette entry, rows padded to a four-byte boundary, and `BI_RLE8` encoded and
-  decoded per spec. Act 1 is built on it, because the format's own compression field makes the
-  act's argument — BMP has no 24-bit RLE mode, only palettised ones.
+- **`engine/formats/bmp.ts` is real BMP arithmetic** — the 54-byte header, four bytes per palette
+  entry, rows padded to a four-byte boundary, `BI_RLE8` encoded and decoded per spec. Act 1 used to
+  be built on it and no longer is: `rle-bitmap` demonstrates run-length encoding in the abstract on
+  its own 16×16 pixel art, because 256 bytes fit on screen in full and a photograph's 786,432 do
+  not. The module and its tests stay, and the fact that BMP ships `BI_RLE8` and `BI_RLE4` and no
+  24-bit run-length mode survives as one sentence of that slide's prose.
 - **`engine/jpeg/stages.ts` prices the whole chain stage by stage** for the finale slide, and
   `compareScanOrders` there backs the zigzag comparison. Note what it found: reordering does *not*
   change the RLE pair count, and the DCT *reduces* order-0 entropy rather than increasing it.
+- **The four `content/` corpora are data, not decoration.** `corpus.ts` (Huffman texts and the
+  LZ77 texts, which deliberately share the Austen paragraph so the two slides' ratios are
+  comparable), `sprites.ts` and `summaries.ts`. Each picker is built so one option *fails* — ASCII
+  noise, a gradient, prose with no shorthand. Those control cases are what make the slides
+  arguments rather than demos; do not quietly replace them with something that works. The gradient
+  earns its place twice over: it defeats run-length coding *and* overflows `MAX_PALETTE`, which is
+  what lets `rle-bitmap` show that palettising is itself sometimes the lossy step.
 - **Rendering is plain 2D canvas** (`getContext('2d')` + `putImageData`) inside each step, with a
   `watch` + `onMounted` redraw pair. `src/rendering/PixiCanvas.vue` and the `pixi.js` dependency
   are still unused — `basis-64` animates 64 sprites on a 2D canvas instead, deliberately, to avoid
@@ -127,6 +143,49 @@ deck order, the ToC and the deep links. Declare which global controls the slide 
 (`controls: ['image', 'quality']`) and how many `fragments` it has. Publish numbers with `useStat`,
 and put the prose in `src/content/`. `ExpandablePanel.vue` is the convention for "click to reveal
 the maths/details" asides.
+
+### The exploration-slide pattern
+
+Five slides are built the same way — `summarising`, `rle-bitmap`, `huffman-codes`, `lz77`,
+`basis-64` — and a sixth should be too. The shape is: **source on the left,
+machinery in the middle, reconstruction on the right**, a picker whose options span the outcome
+space, and a row of phase buttons that plays one animation.
+
+```ts
+const { canvas, stage, selectStage, rebuild } = usePhaseStage({
+  stages: ['message', 'coded', 'decoded'],   // one label per phase, on the timeline
+  width: 1600, height: 816,                  // aspect matched to the slide area
+  beforeBuild: () => { readColours(); model.value = buildModel() },
+  build,                                     // returns a paused gsap.Timeline
+  draw,                                      // (ctx, scale) => void, in logical units
+})
+```
+
+`usePhaseStage` owns the DPR-aware backing store, the gated redraw loop, the two-way sync between
+`stage` and `deck.fragment`, and learn mode. `beforeBuild` runs before every build, so a
+late-loading font re-measures the layout instead of replaying over stale metrics. The template is
+a `.stage-wrap` flex box around the canvas plus a `.stage-controls` row of `.seg-group` buttons —
+all four classes are in `global.css`, and the wrapper is what lets `max-width/max-height: 100%`
+fill the box on both a laptop and a projector.
+
+Rules the six follow, learned the hard way:
+
+- **One picker option must fail.** ASCII noise, a gradient, prose with no shorthand. Without it the
+  slide is a demo rather than an argument, and the deck's thesis is that the data is the variable.
+- **Verify the round trip, never assert it.** Decode and compare; the LOSSY/LOSSLESS stamp reads
+  the result. `rle-bitmap` compares *pixels* rather than bytes, which is what catches a palette
+  that had to drop colours before the encoder ever ran.
+- **Nothing on the stage that is not a live readout.** Captions belong in the control row (a
+  `.desc` above the picker) or nowhere. No panel titles, no phase-name captions.
+- **Two stamps, both at the end of their animation.** `drawStamp` from `rendering/stamp.ts` is the
+  only place the ratio and the verdict are worded or coloured.
+- **Truncation is reported, and type is never scaled to fit.** `layoutRibbon` returns `hidden`;
+  the numbers a slide publishes are always computed over the whole stream, never the visible part.
+  Fitting the font size to the content makes a short stream render bigger than a long one, which
+  destroys the very comparison these panes exist to make — pick one size and say what did not fit.
+- **Panels showing the same message in two forms share one grid.** Pass the source grid's
+  `fontSize` to `layoutTextGrid` for the others, or the shorter form is scaled up to fill its panel
+  and the compression stops being visible.
 
 ### Presentation styling
 

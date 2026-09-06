@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { inject, ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { inject, ref, computed, watch, onMounted, nextTick } from 'vue'
 import gsap from 'gsap'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import { useDeck } from '../../deck/useDeck'
+import { usePhaseStage } from '../../deck/usePhaseStage'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { inverseDCT } from '../../engine/jpeg/dct'
 import { scaleQTable, LUMA_TABLE } from '../../engine/jpeg/quantization'
 import { ZIGZAG_ORDER, zigzagIndex } from '../../engine/jpeg/zigzag'
 import type { Block } from '../../engine/jpeg/types'
 import { paintBlock8 as paintBlock, writeShade, fillBlock8 } from '../../rendering/shade'
+import { drawStamp, stampBounds } from '../../rendering/stamp'
 import { useStat } from '../../stats/useStats'
 
 /**
@@ -41,7 +42,6 @@ import { useStat } from '../../stats/useStats'
  */
 
 const pipeline = inject(PIPELINE_KEY)!
-const deck = useDeck()
 
 // --- Stage geometry, in canvas logical units ---------------------------------
 
@@ -323,21 +323,7 @@ const STAGES = ['start', 'grid', 'quantised', 'done'] as const
  */
 const STAGE_NAMES = ['Pixels', 'Waves', 'Waves', 'Pixels'] as const
 
-let tl: gsap.core.Timeline | null = null
-/** The tween that moves the playhead, kept so a second click can cancel the first. */
-let playhead: gsap.core.Tween | null = null
-
-/**
- * Which of the four states we are heading for.
- *
- * Driven from two places that have to agree: the buttons under the stage, and the arrow
- * keys, which move the deck's fragment like on every other slide. The buttons write the
- * fragment back so a presenter can mix the two freely.
- */
-const stage = ref(deck.learnMode.value ? 3 : Math.min(3, deck.fragment.value))
-
-function buildTimeline() {
-  tl?.kill()
+function build() {
   const surv = survivors.value
 
   for (const s of sprites) {
@@ -345,7 +331,7 @@ function buildTimeline() {
     s.flight = 0; s.merge = 1; s.quantMix = 1
   }
 
-  tl = gsap.timeline({ paused: true })
+  const tl = gsap.timeline({ paused: true })
   // Every entry in STAGES must exist as a label: GSAP resolves an unknown label to the
   // end of the timeline rather than failing, which is silent and very confusing.
   tl.addLabel('start', 0)
@@ -389,67 +375,15 @@ function buildTimeline() {
   tl.addLabel('done', DONE_LABEL)
   // Something has to occupy the final instant or the timeline ends before the label.
   tl.to({}, { duration: 0.01 }, DONE_LABEL)
-
-  goToStage(stage.value, true)
-}
-
-function goToStage(n: number, instant = false) {
-  if (!tl) return
-  playhead?.kill()
-  playhead = null
-  const label = STAGES[Math.max(0, Math.min(3, n))]
-  // No duration given, so GSAP moves the playhead at natural speed: picking a state
-  // *plays* the animation from wherever it is to that state, forwards or backwards.
-  if (instant) tl.seek(label)
-  else playhead = tl.tweenTo(label)
-}
-
-function selectStage(n: number) {
-  const target = Math.max(0, Math.min(3, n))
-  // Picking the state you are already in replays the step that got you there, which is
-  // what the play button used to be for.
-  if (target === stage.value && target > 0 && tl) tl.seek(STAGES[target - 1])
-  stage.value = target
-  if (!deck.learnMode.value) deck.fragment.value = target
-  goToStage(target)
+  return tl
 }
 
 // --- Drawing ------------------------------------------------------------------
 
-const stageCanvas = ref<HTMLCanvasElement>()
-
-/**
- * Device pixels per logical unit.
- *
- * The stage is authored in a fixed 1100x560 coordinate system, but CSS shows it at
- * whatever width is left over — around 775px. Leaving the backing store at 1100 meant the
- * browser resampled the entire canvas down by 0.7 on every frame, smoothly, and no amount
- * of `imageSmoothingEnabled = false` prevents that: the flag governs drawing *into* a
- * canvas, not the scaling *of* one. Everything on the stage was being softened, which is
- * most obvious on an 8x8 block of pixel art.
- *
- * So the backing store is sized to the real display size and the context is scaled to
- * match, leaving the drawing code in logical units.
- */
-let scale = 1
-
-function resizeCanvas() {
-  const canvas = stageCanvas.value
-  if (!canvas) return
-  const width = canvas.getBoundingClientRect().width
-  if (!width) return
-  const next = (width * (window.devicePixelRatio || 1)) / STAGE_W
-  if (Math.abs(next - scale) < 0.001) return
-  scale = next
-  // Both dimensions scale together, so the intrinsic aspect ratio — and therefore the
-  // laid-out size — does not change, and this cannot feed back into the observer.
-  canvas.width = Math.round(STAGE_W * scale)
-  canvas.height = Math.round(STAGE_H * scale)
+let colours = {
+  bg: '#14141f', border: '#2a2a3a', text: '#e0e0e8',
+  dim: '#8888a0', accent: '#6c8cff', good: '#4ade80', warn: '#fbbf24',
 }
-
-let observer: ResizeObserver | null = null
-
-let colours = { bg: '#14141f', border: '#2a2a3a', text: '#e0e0e8', dim: '#8888a0', accent: '#6c8cff', good: '#4ade80' }
 
 function readColours() {
   const s = getComputedStyle(document.documentElement)
@@ -461,6 +395,7 @@ function readColours() {
     dim: v('--text-secondary', '#8888a0'),
     accent: v('--accent', '#6c8cff'),
     good: v('--positive', '#4ade80'),
+    warn: v('--warning', '#fbbf24'),
   }
 }
 
@@ -486,11 +421,9 @@ function arrow(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number)
   ctx.closePath(); ctx.fill()
 }
 
-function draw() {
-  const canvas = stageCanvas.value
-  if (!canvas || !dequantised.value) return
-  const ctx = canvas.getContext('2d')!
-  ctx.setTransform(scale, 0, 0, scale, 0, 0)
+/** `scale` is device pixels per logical unit; the two 8x8 panels need it (see below). */
+function draw(ctx: CanvasRenderingContext2D, scale: number) {
+  if (!dequantised.value) return
   ctx.imageSmoothingEnabled = false
 
   ctx.fillStyle = colours.bg
@@ -526,6 +459,26 @@ function draw() {
   // stats HUD, which already carries the kept count and the maximum pixel error.
   arrow(ctx, SRC_X + STATION + 8, GRID_X - 8, CY)
   arrow(ctx, GRID_X + GRID_SPAN + 8, RECON_X - 8, CY)
+
+  // The one label the stage keeps, on the panel making the claim. Driven by the measured
+  // pixel diff, so a block that happens to survive quantisation intact reads LOSSLESS —
+  // which is true of that block, and the reason this is not a constant.
+  //
+  // Faded in by how much of the reconstruction has actually arrived, so it appears with
+  // the picture it describes rather than sitting over an empty panel from the first frame.
+  let arrived = 1
+  for (const s of sprites) arrived = Math.min(arrived, s.merge)
+  const t = Math.max(0, Math.min(1, (arrived - 0.9) / 0.1))
+  const lossy = maxError.value > 0
+  const text = lossy ? 'LOSSY' : 'LOSSLESS'
+  // Below the station rather than struck across it: the reconstruction is only 200 units
+  // wide, and a stamp that size would cover the picture it is describing. Centred under
+  // the station, but pulled left if the wider of the two words would run off the stage.
+  const b = stampBounds(ctx, text, 36)
+  drawStamp(ctx, text,
+    Math.min(RECON_X + STATION / 2, STAGE_W - MARGIN - b.w / 2),
+    CY + STATION / 2 + 14 + b.h / 2,
+    lossy ? colours.warn : colours.good, { size: 36, alpha: t * t * (3 - 2 * t) })
 
   // Grid tiles, crossfaded between their before- and after-quantisation versions. During
   // the implode these are the same objects, in flight towards the reconstruction.
@@ -620,51 +573,30 @@ function pickBlock(e: MouseEvent) {
 
 // --- Wiring -------------------------------------------------------------------
 
-function rebuild() {
-  renderTiles()
-  buildTimeline()
+const { canvas: stageCanvas, stage, selectStage, rebuild } = usePhaseStage({
+  stages: STAGES,
+  width: STAGE_W,
+  height: STAGE_H,
+  beforeBuild: () => { readColours(); renderTiles() },
+  build,
+  draw,
+})
+
+function refresh() {
+  rebuild()
   nextTick(drawPicker)
 }
 
-watch([() => pipeline.selectedBlockIndex.value, dequantised], rebuild)
+watch([() => pipeline.selectedBlockIndex.value, dequantised], refresh)
 watch(() => pipeline.ycbcr.value, () => nextTick(drawPicker))
 // Loading an image resets the selection to block 0, which on the pixel-art sample is
 // blank background — the one block with nothing to show.
 watch(() => pipeline.sourceImageData.value, () => pickInterestingBlock())
-// Arrow keys move the deck's fragment; mirror that onto the stage without looping back.
-watch(() => deck.fragment.value, n => {
-  const target = Math.max(0, Math.min(3, n))
-  if (target === stage.value) return
-  stage.value = target
-  goToStage(target)
-})
-watch(() => deck.learnMode.value, on => {
-  if (!on) return
-  stage.value = 3
-  goToStage(3)
-})
 
 onMounted(() => {
-  readColours()
-  const canvas = stageCanvas.value
-  if (canvas) {
-    canvas.width = STAGE_W
-    canvas.height = STAGE_H
-    resizeCanvas()
-    observer = new ResizeObserver(resizeCanvas)
-    observer.observe(canvas)
-  }
   pickInterestingBlock()
-  rebuild()
-  gsap.ticker.add(draw)
+  nextTick(drawPicker)
 })
-
-onUnmounted(() => {
-  gsap.ticker.remove(draw)
-  observer?.disconnect()
-  tl?.kill()
-})
-
 </script>
 
 <template>
@@ -752,9 +684,9 @@ onUnmounted(() => {
   min-height: 0;
 }
 
+/* Sized in JS from `.stage-wrap` — see `usePhaseStage`. */
 .stage canvas {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
   border-radius: 6px;
   border: 1px solid var(--border);
 }
