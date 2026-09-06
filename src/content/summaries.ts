@@ -35,6 +35,12 @@ export interface SummaryText {
   id: string
   label: string
   credit: string
+  /**
+   * Character cells across the panel — and therefore the type size, which is the panel
+   * width divided by this. Thirty-two is about twenty-five pixels on the stage; forty was
+   * twenty, which is too small to read from the back of a room. Widen it only as far as the
+   * longest text still fits without the layout's shrink retries firing.
+   */
   cols: number
   lineFactor: number
   text: string
@@ -51,7 +57,7 @@ export const SUMMARY_TEXTS: SummaryText[] = [
     label: 'Weather',
     credit: 'aerodrome forecast, decoded — a US government work',
     codebook: 'METAR/TAF, the international aviation weather code',
-    cols: 40,
+    cols: 32,
     lineFactor: 1.22,
     text:
       'Terminal aerodrome forecast, issued at 1730 zulu. ' +
@@ -96,7 +102,7 @@ export const SUMMARY_TEXTS: SummaryText[] = [
     label: 'Signals',
     credit: 'Q-code radio traffic, in use since 1909',
     codebook: 'the international Q-code, three letters per phrase',
-    cols: 40,
+    cols: 32,
     lineFactor: 1.22,
     text:
       'What is your position? ' +
@@ -140,7 +146,7 @@ export const SUMMARY_TEXTS: SummaryText[] = [
     label: 'Chess',
     credit: 'the Sicilian Defence, Najdorf variation',
     codebook: 'algebraic notation, in use since the eighteenth century',
-    cols: 40,
+    cols: 32,
     lineFactor: 1.22,
     text:
       'White advances the king pawn two squares. ' +
@@ -180,7 +186,7 @@ export const SUMMARY_TEXTS: SummaryText[] = [
     label: 'Prose',
     credit: 'Lincoln, Gettysburg Address, 1863',
     codebook: 'no agreed codebook exists — this is the control case',
-    cols: 40,
+    cols: 32,
     lineFactor: 1.22,
     text:
       'Four score and seven years ago our fathers brought forth on this continent, a new ' +

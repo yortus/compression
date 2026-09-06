@@ -13,7 +13,6 @@ import Fragment from '../../deck/Fragment.vue'
       <Fragment :index="1">
         <div class="hints">
           <span><kbd>→</kbd> next</span>
-          <span><kbd>L</kbd> learn mode</span>
           <span><kbd>?</kbd> all keys</span>
           <span class="muted">every slide is live — change the image, move the sliders</span>
         </div>
@@ -68,7 +67,7 @@ h1 {
 
 kbd {
   font-family: monospace;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
   border-radius: 4px;

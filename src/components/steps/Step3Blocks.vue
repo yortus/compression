@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { channelToImageData } from '../../engine/jpeg/colorspace'
 import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
@@ -237,12 +236,6 @@ onMounted(() => { drawGrid(); drawDetail() })
         </div>
       </div>
     </div>
-    <template #notes>
-      <ExpandablePanel label="How it works">
-        <p>Each 8×8 block goes through the full JPEG pipeline independently: DCT → Quantize → Zigzag scan → RLE → Huffman.</p>
-        <p style="margin-top:0.5rem">Use the tabs to walk through each stage for the selected block.</p>
-      </ExpandablePanel>
-    </template>
   </SlideLayout>
 </template>
 

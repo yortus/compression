@@ -8,7 +8,7 @@ import { SUMMARY_TEXTS, summaryTextById } from '../../content/summaries'
 import { tokeniseWords, utf8Bytes } from '../../engine/codecs/tokenise'
 import { abbreviate, expand, dictionaryBits, survivingTokens } from '../../engine/codecs/abbreviate'
 import { layoutTextGrid, drawTextGrid, type TextGrid } from '../../rendering/textGrid'
-import { drawStamp } from '../../rendering/stamp'
+import { drawStamp, ratioVerdict } from '../../rendering/stamp'
 
 /**
  * Summarising is compression, and it is the cleanest way into lossy versus lossless
@@ -57,13 +57,17 @@ const BADGE_Y = CENTRE_Y + CENTRE_H - 62
  *
  * It is the half of the bargain that is easy to forget: `4.5× SMALLER` is only true for a
  * reader who already has the codebook, and the codebook is bigger than the message it
- * decodes. Showing the entries — rather than only counting their bytes in the HUD — is what
- * makes "you need the message *and* a shared primer" concrete instead of a slogan.
+ * decodes. Showing the entries — rather than only counting their bytes — is what makes
+ * "you need the message *and* a shared primer" concrete instead of a slogan.
+ *
+ * Six entries in two columns, not fifteen in three. Fifteen fitted and none of them could
+ * be read from the back of a room, which makes the band decoration rather than evidence —
+ * the same trade the Huffman table makes at six slots. What does not fit is counted.
  */
 const PRIMER_Y = GRID_Y + PANEL + 24
 const PRIMER_H = STAGE_H - PRIMER_Y - 14
-const PRIMER_COLS = 3
-const PRIMER_ROWS = 5
+const PRIMER_COLS = 2
+const PRIMER_ROWS = 3
 
 const STAGES = ['message', 'marked', 'coded', 'result', 'back'] as const
 const STAGE_NAMES = ['Message', 'Marked', 'Coded', 'Result', 'Back'] as const
@@ -274,19 +278,17 @@ function drawPrimer(ctx: CanvasRenderingContext2D) {
   ctx.globalAlpha = anim.code
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
-  ctx.font = '600 17px Inter, system-ui, sans-serif'
+  ctx.font = '600 28px Inter, system-ui, sans-serif'
 
   if (!m.lossless) {
     ctx.fillStyle = colours.dim
-    ctx.font = '19px Inter, system-ui, sans-serif'
-    ctx.fillText(
-      'No codebook — a summary needs no shared key, and nothing has to be learned in advance to read one.',
-      MARGIN + 24, PRIMER_Y + PRIMER_H / 2 - 18)
+    ctx.font = '28px Inter, system-ui, sans-serif'
+    ctx.fillText('No codebook — a summary needs no shared key.',
+      MARGIN + 24, PRIMER_Y + PRIMER_H / 2 - 22)
     ctx.fillStyle = colours.warn
-    ctx.font = '600 19px Inter, system-ui, sans-serif'
-    ctx.fillText(
-      `That is also why there is no way back: ${m.lostPercent}% of the words are gone, and no key would bring them back.`,
-      MARGIN + 24, PRIMER_Y + PRIMER_H / 2 + 18)
+    ctx.font = '600 28px Inter, system-ui, sans-serif'
+    ctx.fillText(`And no way back: ${m.lostPercent}% of the words are simply gone.`,
+      MARGIN + 24, PRIMER_Y + PRIMER_H / 2 + 22)
     ctx.globalAlpha = 1
     return
   }
@@ -294,24 +296,36 @@ function drawPrimer(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = colours.warn
   ctx.fillText(
     `THE CODEBOOK · ${m.entries} ENTRIES · ${Math.round(m.overheadBits / 8)} BYTES` +
-    ` — larger than the message it decodes, and learned once per reader`,
-    MARGIN + 24, PRIMER_Y + 26)
+    ' — larger than the message it decodes',
+    MARGIN + 24, PRIMER_Y + 28)
 
+  const slots = PRIMER_COLS * PRIMER_ROWS
   const slotW = (STAGE_W - MARGIN * 2 - 32) / PRIMER_COLS
-  const top = PRIMER_Y + 52
-  const slotH = (PRIMER_H - 66) / PRIMER_ROWS
+  const top = PRIMER_Y + 56
+  const slotH = (PRIMER_H - 76) / PRIMER_ROWS
   s.dictionary.forEach((entry, i) => {
-    if (i >= PRIMER_COLS * PRIMER_ROWS) return
+    if (i >= slots) return
     const x = MARGIN + 16 + (i % PRIMER_COLS) * slotW
     const y = top + Math.floor(i / PRIMER_COLS) * slotH + slotH / 2
     ctx.textAlign = 'left'
     ctx.fillStyle = colours.accent
-    ctx.font = '19px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-    ctx.fillText(entry.code, x + 10, y, 124)
+    ctx.font = '28px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+    ctx.fillText(entry.code, x + 10, y, 190)
     ctx.fillStyle = colours.dim
-    ctx.font = '16px Inter, system-ui, sans-serif'
-    ctx.fillText(`= ${entry.phrase}`, x + 144, y, slotW - 160)
+    ctx.font = '26px Inter, system-ui, sans-serif'
+    ctx.fillText(`= ${entry.phrase}`, x + 210, y, slotW - 230)
   })
+
+  // What did not fit is a count, not a smaller font.
+  const hidden = s.dictionary.length - slots
+  if (hidden > 0) {
+    ctx.textAlign = 'right'
+    ctx.fillStyle = colours.dim
+    ctx.font = '26px Inter, system-ui, sans-serif'
+    ctx.fillText(`+ ${hidden} more ${hidden === 1 ? 'entry' : 'entries'}`,
+      STAGE_W - MARGIN - 24, PRIMER_Y + PRIMER_H - 16)
+    ctx.textAlign = 'left'
+  }
   ctx.globalAlpha = 1
 }
 
@@ -352,9 +366,9 @@ function draw(ctx: CanvasRenderingContext2D) {
   })
 
   if (anim.badge > 0.01) {
-    const shown = 1 + (ratio.value - 1) * anim.badge
-    drawStamp(ctx, `${shown.toFixed(1)}× SMALLER`, CENTRE_X + CENTRE_W / 2, BADGE_Y,
-      colours.good, { alpha: anim.badge })
+    const verdict = ratioVerdict(1 + (ratio.value - 1) * anim.badge)
+    drawStamp(ctx, verdict.text, CENTRE_X + CENTRE_W / 2, BADGE_Y,
+      verdict.better ? colours.good : colours.warn, { alpha: anim.badge })
   }
 
   // What comes back.

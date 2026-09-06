@@ -137,7 +137,7 @@ const entries = computed(() =>
 .gap {
   grid-column: 1 / -1;
   margin: 0.05rem 0 0.1rem;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-style: italic;
   letter-spacing: 0.04em;
   color: var(--text-secondary);

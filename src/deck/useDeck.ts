@@ -6,22 +6,20 @@ import type { ControlId } from './types'
  * Deck navigation: which slide, which fragment within it, and how that maps to the URL.
  *
  * Two audiences share this. A presenter steps through fragments with the arrow keys;
- * someone reading it later lands on a deep link with every fragment already revealed
- * (learn mode). Both must be able to jump around freely.
+ * someone reading it later lands on a deep link and steps through the same build. There is
+ * no second mode: the detail that used to justify one lives in the Learn More panel, which
+ * is a button rather than a state the deck can be left in.
  */
 export function createDeck() {
   const index = ref(0)
   const fragment = ref(0)
-  const learnMode = ref(false)
 
   const slide = computed(() => SLIDES[index.value])
   const act = computed(() => actOf(slide.value))
   const fragmentCount = computed(() => slide.value.fragments ?? 1)
 
-  /** In learn mode nothing is held back — there is no presenter to reveal it. */
-  const revealed = computed(() => (learnMode.value ? fragmentCount.value - 1 : fragment.value))
   function isRevealed(n: number) {
-    return n <= revealed.value
+    return n <= fragment.value
   }
 
   function controlEnabled(id: ControlId) {
@@ -45,13 +43,13 @@ export function createDeck() {
 
   /** Advance a fragment if the slide has one left, otherwise move to the next slide. */
   function next() {
-    if (!learnMode.value && fragment.value < fragmentCount.value - 1) fragment.value++
+    if (fragment.value < fragmentCount.value - 1) fragment.value++
     else goTo(index.value + 1)
   }
 
   /** Step back through fragments; landing on a previous slide shows it fully built. */
   function prev() {
-    if (!learnMode.value && fragment.value > 0) fragment.value--
+    if (fragment.value > 0) fragment.value--
     else if (index.value > 0) {
       const target = index.value - 1
       goTo(target, (SLIDES[target].fragments ?? 1) - 1)
@@ -89,7 +87,6 @@ export function createDeck() {
   }
 
   function start() {
-    if (new URLSearchParams(location.search).get('mode') === 'learn') learnMode.value = true
     readHash()
     writeHash()
     window.addEventListener('hashchange', () => {
@@ -102,7 +99,6 @@ export function createDeck() {
   return {
     index,
     fragment,
-    learnMode,
     slide,
     act,
     slides: SLIDES,

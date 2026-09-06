@@ -141,13 +141,13 @@ function onDraw(next: number[]) {
 }
 
 .input-row button {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
 }
 
 .hint {
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-style: italic;
   margin-left: 0.4rem;
@@ -162,7 +162,7 @@ function onDraw(next: number[]) {
 .pad-legend {
   display: flex;
   gap: 1rem;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   justify-content: center;
 }
@@ -193,7 +193,7 @@ function onDraw(next: number[]) {
   align-items: center;
   gap: 0.5rem;
   justify-content: center;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 
@@ -238,7 +238,7 @@ function onDraw(next: number[]) {
 
 .part-label {
   position: relative;
-  font-size: 0.5rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -256,7 +256,7 @@ function onDraw(next: number[]) {
 .more {
   flex: none;
   width: 4rem;
-  font-size: 0.5rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-style: italic;
   text-align: center;

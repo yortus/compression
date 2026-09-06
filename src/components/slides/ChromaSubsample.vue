@@ -208,7 +208,7 @@ function kb(samples: number) {
 }
 
 h3 {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -241,7 +241,7 @@ h3 {
 }
 
 .size {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -283,7 +283,7 @@ h3 {
 
 .ab button {
   padding: 0.2rem 0.5rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   border-radius: 4px;
 }
 
@@ -294,7 +294,7 @@ h3 {
 }
 
 .caption {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-style: italic;
   color: var(--text-secondary);
 }

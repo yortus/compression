@@ -218,7 +218,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
   grid-template-columns: 9.5rem minmax(0, 1fr) 4rem 3.4rem minmax(0, 1.15fr);
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   padding: 0.12rem 0.3rem;
   border-radius: 4px;
 }
@@ -235,7 +235,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 }
 
 .lossy-tag {
-  font-size: 0.45rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--warning);
@@ -279,7 +279,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 .delta.flat { color: var(--text-secondary); }
 
 .note {
-  font-size: 0.53rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -338,7 +338,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
   display: flex;
   gap: 1rem;
   align-items: baseline;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   flex-wrap: wrap;
   justify-content: center;
@@ -347,7 +347,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 .earlier-head {
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 0.5rem;
+  font-size: 0.62rem;
 }
 
 .earlier-row strong {

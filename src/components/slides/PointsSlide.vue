@@ -104,7 +104,7 @@ const content = computed(() => POINTS[deck.slide.value.id] ?? { cards: [] })
 }
 
 .tag {
-  font-size: 0.52rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-secondary);

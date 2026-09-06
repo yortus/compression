@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { useStat } from '../../stats/useStats'
 import { formatBytes } from '../../stats/types'
@@ -157,12 +156,6 @@ onMounted(drawAll)
       </div>
     </div>
 
-    <template #notes>
-      <ExpandablePanel label="Full pipeline summary">
-        <p>Decode reverses the pipeline: dequantize → inverse DCT → merge blocks → upsample chroma → YCbCr → RGB.</p>
-        <p style="margin-top:0.5rem">The only information lost is in the quantization step. Everything else is reversible.</p>
-      </ExpandablePanel>
-    </template>
   </SlideLayout>
 </template>
 

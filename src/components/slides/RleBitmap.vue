@@ -12,7 +12,7 @@ import {
 import { runSpans, spansToBytes, decodePairs, type RunSpan } from '../../engine/codecs/rle'
 import { layoutRibbon, drawRibbon, ribbonFont, type Ribbon, type RibbonGlyph } from '../../rendering/ribbon'
 import { tokenColour } from '../../rendering/tokenColours'
-import { drawStamp, stampBounds } from '../../rendering/stamp'
+import { drawStamp, stampBounds, ratioVerdict } from '../../rendering/stamp'
 
 /**
  * Run-length encoding, in the abstract, on artwork the slide owns.
@@ -290,14 +290,13 @@ function buildModel(): Model | null {
 }
 
 /**
- * Stream *and* primer. The palette row cannot be decoded without the palette, which is
- * drawn in the band at the bottom and counted here — otherwise the one representation
- * that carries a primer would win partly by not paying for it.
+ * The stream, before and after coding. The palette is a fixed cost that does not scale with
+ * the picture, so it is kept out of the badge and stated where it is drawn — the band at the
+ * bottom gives it in entries and bytes, and `useStat` carries it as `overheadBits`.
  */
 const ratio = computed(() => {
   const m = model.value
-  const total = m ? m.encodedBits + m.overheadBits : 0
-  return m && total > 0 ? m.rawBits / total : 1
+  return m && m.encodedBits > 0 ? m.rawBits / m.encodedBits : 1
 })
 
 useStat('rle-bitmap', () => {
@@ -486,7 +485,7 @@ function drawThumbs(ctx: CanvasRenderingContext2D) {
 
   // The thumbnails say which sprite; this says why it is in the picker at all.
   ctx.fillStyle = colours.dim
-  ctx.font = 'italic 19px Inter, system-ui, sans-serif'
+  ctx.font = 'italic 22px Inter, system-ui, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(sprite.value.note, LEFT_X + PANEL / 2, THUMB_Y + THUMB_H + 26, PANEL)
@@ -503,6 +502,26 @@ function pickSprite(event: MouseEvent) {
 }
 
 /**
+ * Word-wrapped lines. The band is wide enough that a sentence set at a readable size needs
+ * two of them, and the alternative — one line sized to fit — is the thing the deck forbids.
+ */
+function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const lines: string[] = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    const next = line ? `${line} ${word}` : word
+    if (line && ctx.measureText(next).width > maxWidth) {
+      lines.push(line)
+      line = word
+    } else {
+      line = next
+    }
+  }
+  if (line) lines.push(line)
+  return lines
+}
+
+/**
  * The primer band. Only the palette representation has one — which is why the band is on
  * all three rather than only on the one that fills it: an empty primer is a result.
  */
@@ -512,42 +531,45 @@ function drawPrimer(ctx: CanvasRenderingContext2D) {
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
 
+  // "No primer" is a two-line sentence in a band built to hold a palette, so it gets the
+  // room: set large and wrapped, centred in the empty space rather than squeezed onto one
+  // line in the middle of it.
   if (repId.value !== 'palette') {
     ctx.fillStyle = colours.dim
-    ctx.font = '20px Inter, system-ui, sans-serif'
-    ctx.fillText(rep.value.primer, MARGIN + 26, PRIMER_Y + PRIMER_H / 2, STAGE_W - MARGIN * 2 - 52)
+    ctx.font = '34px Inter, system-ui, sans-serif'
+    const lines = wrapLines(ctx, rep.value.primer, STAGE_W - MARGIN * 2 - 60)
+    const lineH = 46
+    const top = PRIMER_Y + PRIMER_H / 2 - ((lines.length - 1) * lineH) / 2
+    lines.forEach((l, i) => ctx.fillText(l, MARGIN + 30, top + i * lineH))
     return
   }
 
   const lost = m.pixels.lossyPalette
   ctx.fillStyle = colours.warn
-  ctx.font = '600 18px Inter, system-ui, sans-serif'
+  ctx.font = '600 26px Inter, system-ui, sans-serif'
   ctx.fillText(
     `THE PALETTE · ${m.pixels.palette.length} ENTRIES · ${Math.round(m.overheadBits / 8)} BYTES`
     + (lost
-      ? ` — the artwork had ${m.pixels.sourceColours} colours, so this is the one row that cannot give them back`
+      ? ` — the artwork had ${m.pixels.sourceColours} colours, so these cannot be given back`
       : ' — an index means nothing without it, so it travels with the picture'),
-    MARGIN + 26, PRIMER_Y + 26)
+    MARGIN + 26, PRIMER_Y + 30)
 
   // Sized to whatever the palette turned out to be: four for a sprite, sixteen for a ramp.
   const pitch = Math.min(110, (STAGE_W - MARGIN * 2 - 52) / m.pixels.palette.length)
   const sw = Math.max(26, pitch - 16)
   m.pixels.palette.forEach((rgb, i) => {
     const x = MARGIN + 26 + i * pitch
-    const y = PRIMER_Y + 50
+    const y = PRIMER_Y + 56
     ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`
-    roundRect(ctx, x, y, sw, 42, 5)
+    roundRect(ctx, x, y, sw, 46, 5)
     ctx.fill()
     ctx.strokeStyle = colours.border
     ctx.lineWidth = 1
     ctx.stroke()
     ctx.textAlign = 'center'
     ctx.fillStyle = colours.accent
-    ctx.font = '18px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-    ctx.fillText(hex(i), x + sw / 2, y + 62)
-    ctx.fillStyle = colours.dim
-    ctx.font = '13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-    ctx.fillText(`${hex(rgb[0])}${hex(rgb[1])}${hex(rgb[2])}`, x + sw / 2, y + 84, sw)
+    ctx.font = '26px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+    ctx.fillText(hex(i), x + sw / 2, y + 68)
     ctx.textAlign = 'left'
   })
 }
@@ -722,11 +744,22 @@ function drawCentre(ctx: CanvasRenderingContext2D) {
   // arrive is what makes them read as *the picture, restated* rather than as a second thing
   // on the slide — and each arrives already tinted, so a run appears as a band the moment it
   // exists and "there are no runs in this one" is something you watch fail to happen.
+  //
+  // Clipped to the pane. The in-place beats check every byte against `capacity` before
+  // drawing it, but the compaction beat interpolates from *expanded* positions — a run near
+  // the end of a full pane has been pushed past the bottom of it by the count bytes in
+  // front, and `bytePos` will happily return a row below the panel. Those glyphs were being
+  // painted over the sprite picker. Clipped, a pair that starts off-pane slides in from the
+  // edge, which is what it is doing anyway.
+  ctx.save()
+  roundRect(ctx, CENTRE_X + 1, CENTRE_Y + 1, CENTRE_W - 2, CENTRE_H - 2, 8)
+  ctx.clip()
   if (anim.insert <= 0.001) {
     drawRibbon(ctx, m.source, RIBBON_X, RIBBON_Y, anim.scan)
   } else {
     drawEncoding(ctx)
   }
+  ctx.restore()
 
   // Truncated, never shrunk — and it says by how much, in bytes rather than glyphs. Held
   // back until the pane has actually been written: during the scan it is only partly full,
@@ -739,19 +772,16 @@ function drawCentre(ctx: CanvasRenderingContext2D) {
   const missing = Math.max(0, total - m.capacity)
   if (anim.scan > 0.98 && missing > 0) {
     ctx.fillStyle = colours.warn
-    ctx.font = '18px Inter, system-ui, sans-serif'
+    ctx.font = '22px Inter, system-ui, sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText(`… ${missing} more bytes`, RIBBON_X, RIBBON_Y + RIBBON_H + 12)
+    ctx.fillText(`… ${missing} more bytes`, RIBBON_X, RIBBON_Y + RIBBON_H + 14)
   }
 
   if (anim.badge > 0.01) {
-    const shown = 1 + (ratio.value - 1) * anim.badge
-    const bigger = shown < 1
-    drawStamp(ctx,
-      bigger ? `${(1 / shown).toFixed(1)}× BIGGER` : `${shown.toFixed(1)}× SMALLER`,
-      CENTRE_X + CENTRE_W / 2, CENTRE_Y + CENTRE_H - 62,
-      bigger ? colours.warn : colours.good, { alpha: anim.badge })
+    const verdict = ratioVerdict(1 + (ratio.value - 1) * anim.badge)
+    drawStamp(ctx, verdict.text, CENTRE_X + CENTRE_W / 2, CENTRE_Y + CENTRE_H - 62,
+      verdict.better ? colours.good : colours.warn, { alpha: anim.badge })
   }
 }
 

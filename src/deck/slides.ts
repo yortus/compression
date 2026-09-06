@@ -131,7 +131,7 @@ export const SLIDES: SlideDef[] = [
     subtitle: 'The sliding window — redundancy you have already seen, and half of gzip',
     component: Lz77,
     tag: 'core',
-    fragments: 5,
+    fragments: 4,
   },
   {
     id: 'rgb-planes',

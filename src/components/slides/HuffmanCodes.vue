@@ -4,9 +4,10 @@ import gsap from 'gsap'
 import SlideLayout from '../../deck/SlideLayout.vue'
 import { usePhaseStage } from '../../deck/usePhaseStage'
 import { useStat } from '../../stats/useStats'
+import { useLearnMore } from '../../deck/useLearnMore'
 import { SAMPLE_TEXTS, sampleById, type SampleText } from '../../content/corpus'
 import { tokenise, graphemes, utf8Bytes } from '../../engine/codecs/tokenise'
-import { drawStamp, stampBounds } from '../../rendering/stamp'
+import { drawStamp, stampBounds, ratioVerdict } from '../../rendering/stamp'
 import {
   buildHuffman,
   countSymbols,
@@ -33,11 +34,12 @@ import {
  * property of the data, not of the coder.
  *
  * **The numbers are measured, never asserted.** The ratio in the badge is
- * `utf8Bytes(message) * 8 / (payloadBits + tableBits)` — the table is part of what has to
- * be sent, so it is part of the ratio — and the LOSSLESS badge on the decoded panel is a
- * real `decodeBits` walk compared against the original, not a constant: if the coder ever
- * broke it would read LOSSY. What the table costs is written under the badge, because a
- * ratio that quietly excluded it would be the one dishonest number in the deck.
+ * `utf8Bytes(message) * 8 / payloadBits` — what the coding did to the message — and the
+ * LOSSLESS badge on the decoded panel is a real `decodeBits` walk compared against the
+ * original, not a constant: if the coder ever broke it would read LOSSY. The code table is
+ * a fixed cost that does not belong in that ratio, so it is priced where fixed costs are
+ * priced in this deck: `useStat` carries it as `overheadBits`, and the Learn More panel
+ * states it in bytes.
  *
  * **One 2D canvas, GSAP tweening plain objects the draw loop reads.** Same model as
  * `basis-64`, for the same reasons: several hundred moving labels are nothing for canvas
@@ -87,9 +89,8 @@ const RIBBON_Y = CENTRE_Y + 16
 const RIBBON_W = CENTRE_W - 32
 const RIBBON_H = 340
 const RIBBON_FONT = 24
-/** The ratio stamp, with the code table's cost on one line beneath it. */
-const BADGE_Y = CENTRE_Y + CENTRE_H - 82
-const TABLE_COST_Y = CENTRE_Y + CENTRE_H - 26
+/** The ratio stamp sits alone under the ribbon. */
+const BADGE_Y = CENTRE_Y + CENTRE_H - 62
 
 const TABLE_X = MARGIN
 const TABLE_Y = GRID_Y + PANEL + 24
@@ -416,15 +417,34 @@ useStat('huffman-codes', () => {
   }
 })
 
-/**
- * Payload *and* table. A Huffman code is useless without the codebook, and the deck's
- * whole argument about primers is that they travel with the data; a headline ratio that
- * counted only the bitstream would flatter every text on the picker by the same trick.
- */
+useLearnMore('huffman-codes', () => {
+  const m = model.value
+  if (!m) return null
+  return [
+    {
+      label: 'Message',
+      value: `${Math.ceil(m.payloadBits / 8).toLocaleString()} bytes`,
+      note: `${m.placed.length} ${m.sample.unit}, ${m.types.length} distinct · ` +
+        `${(m.payloadBits / m.placed.length).toFixed(2)} bits each, against 8 flat`,
+    },
+    {
+      label: 'Code table',
+      value: `${Math.ceil(m.tableBits / 8).toLocaleString()} bytes`,
+      note: 'priced naively here — a symbol, a code length, and the code. Canonical coding ' +
+        'sends the lengths alone',
+    },
+    {
+      label: 'Both, against the original',
+      value: `${(m.rawBits / (m.payloadBits + m.tableBits)).toFixed(2)}:1`,
+      note: 'the number stamped on the stage',
+    },
+  ]
+})
+
+/** The message, before and after coding. The table is a fixed cost, priced elsewhere. */
 const ratio = computed(() => {
   const m = model.value
-  const total = m ? m.payloadBits + m.tableBits : 0
-  return m && total > 0 ? m.rawBits / total : 1
+  return m && m.payloadBits > 0 ? m.rawBits / m.payloadBits : 1
 })
 // --- Animation ------------------------------------------------------------------
 
@@ -686,7 +706,7 @@ function drawRibbon(ctx: CanvasRenderingContext2D) {
 
   if (m.hidden > 0 && anim.encode > 0.98) {
     ctx.fillStyle = colours.dim
-    ctx.font = uiFont(14)
+    ctx.font = uiFont(22)
     ctx.textAlign = 'right'
     ctx.fillText(`+ ${m.hidden.toLocaleString()} more bits`, RIBBON_X + RIBBON_W, RIBBON_Y + RIBBON_H + 6)
   }
@@ -697,27 +717,17 @@ function drawRibbon(ctx: CanvasRenderingContext2D) {
  *
  * The badge used to arrive with a raw-versus-encoded bar pair and a line about amortising
  * the code table. All of it was true and none of it was readable at the back of a room,
- * and it argued with the headline rather than supporting it. What survives of that is one
- * line of it: the table is inside the ratio, and its cost is stated underneath in bytes.
+ * and it argued with the headline rather than supporting it. The pane says the one thing it
+ * is for; what the table costs is in the Learn More panel.
  */
 function drawCentre(ctx: CanvasRenderingContext2D) {
   panel(ctx, CENTRE_X, CENTRE_Y, CENTRE_W, CENTRE_H)
   drawRibbon(ctx)
   if (anim.badge <= 0.01) return
 
-  const shown = 1 + (ratio.value - 1) * anim.badge
-  drawStamp(ctx, `${shown.toFixed(1)}× SMALLER`, CENTRE_X + CENTRE_W / 2, BADGE_Y,
-    colours.good, { alpha: anim.badge })
-
-  const m = model.value!
-  ctx.globalAlpha = anim.badge
-  ctx.fillStyle = colours.warn
-  ctx.font = uiFont(24)
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(`including ${Math.ceil(m.tableBits / 8).toLocaleString()} bytes of code table`,
-    CENTRE_X + CENTRE_W / 2, TABLE_COST_Y)
-  ctx.globalAlpha = 1
+  const verdict = ratioVerdict(1 + (ratio.value - 1) * anim.badge)
+  drawStamp(ctx, verdict.text, CENTRE_X + CENTRE_W / 2, BADGE_Y,
+    verdict.better ? colours.good : colours.warn, { alpha: anim.badge })
 }
 
 /**
@@ -798,7 +808,7 @@ function drawDecoders(ctx: CanvasRenderingContext2D) {
     if (asCode > 0.01) {
       ctx.globalAlpha = asCode
       ctx.fillStyle = colours.accent
-      ctx.font = bitFont(20)
+      ctx.font = bitFont(22)
       ctx.fillText(type.code, x, y)
     }
     if (asText > 0.01) {

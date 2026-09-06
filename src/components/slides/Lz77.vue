@@ -4,17 +4,18 @@ import gsap from 'gsap'
 import SlideLayout from '../../deck/SlideLayout.vue'
 import { usePhaseStage } from '../../deck/usePhaseStage'
 import { useStat } from '../../stats/useStats'
+import { useLearnMore } from '../../deck/useLearnMore'
 import { LZ77_TEXTS, lz77TextById } from '../../content/corpus'
 import { tokenise, utf8Bytes } from '../../engine/codecs/tokenise'
 import {
   encodeLz77, decodeLz77, lz77Bits, tokenCost, tokenSymbol,
-  type Lz77Options, type Lz77Token,
+  type Lz77Options, type Lz77Token, type Lz77Match,
 } from '../../engine/codecs/lz77'
 import { buildHuffman, countSymbols, payloadBits } from '../../engine/codecs/huffman'
 import { layoutTextGrid, drawTextGrid, cellCentre, type TextGrid } from '../../rendering/textGrid'
 import { layoutRibbon, drawRibbon, type Ribbon, type RibbonGlyph } from '../../rendering/ribbon'
 import { tokenColour } from '../../rendering/tokenColours'
-import { drawStamp } from '../../rendering/stamp'
+import { drawStamp, ratioVerdict } from '../../rendering/stamp'
 
 /**
  * The sliding window: redundancy that is *distant* rather than adjacent.
@@ -42,7 +43,17 @@ const STAGE_H = 816
 const MARGIN = 16
 const GAP = 22
 
+/**
+ * The panels are tall, not square.
+ *
+ * Three columns fix the width at 486, and the message used to be set into a 486 square with
+ * 46 columns — about fourteen pixels a character once the fitter had shrunk it to make the
+ * paragraph fit, which is unreadable from a room. The bottom third of the stage was empty
+ * the whole time. Spending it on rows rather than columns is what lets the same paragraph
+ * be set at half again the size.
+ */
 const PANEL = 486
+const PANEL_H = 786
 const GRID_Y = 14
 const LEFT_X = MARGIN
 const RIGHT_X = STAGE_W - MARGIN - PANEL
@@ -50,17 +61,27 @@ const RIGHT_X = STAGE_W - MARGIN - PANEL
 const CENTRE_X = LEFT_X + PANEL + GAP
 const CENTRE_W = RIGHT_X - GAP - CENTRE_X
 const CENTRE_Y = GRID_Y
-const CENTRE_H = PANEL
+const CENTRE_H = PANEL_H
 
 const RIBBON_X = CENTRE_X + 16
 const RIBBON_Y = CENTRE_Y + 16
 const RIBBON_W = CENTRE_W - 32
-const RIBBON_H = 320
-const RIBBON_FONT = 20
-const BADGE_Y = CENTRE_Y + CENTRE_H - 96
+const RIBBON_H = 560
+const RIBBON_FONT = 30
+const BADGE_Y = CENTRE_Y + CENTRE_H - 110
 
-const STAGES = ['text', 'matching', 'tokens', 'decoded', 'deflate'] as const
-const STAGE_NAMES = ['Text', 'Matching', 'Tokens', 'Decoded', '+ Huffman'] as const
+/**
+ * Four phases, not five.
+ *
+ * There was a fifth — run the Huffman coder over the token stream, watch the ratio jump
+ * again, and name the pair DEFLATE. It is the best fact on the slide and it was the worst
+ * thing on the stage: a second ratio arriving after the verdict, two lines of type under it,
+ * and a phase button that had nothing to do with the sliding window. The numbers are still
+ * measured below and belong on this slide's Learn More panel; the stage stops at the round
+ * trip.
+ */
+const STAGES = ['text', 'matching', 'tokens', 'decoded'] as const
+const STAGE_NAMES = ['Text', 'Matching', 'Tokens', 'Decoded'] as const
 
 const WINDOWS = [32, 128, 512]
 
@@ -76,6 +97,25 @@ interface Arc {
   order: number
 }
 
+/** A cell covered by a back-reference: which colour, and when the cursor reaches it. */
+interface CellMark {
+  colour: string
+  order: number
+}
+
+/**
+ * How many references the left panel draws.
+ *
+ * Every match is real, and on English prose there are fifty-odd of them — mostly three
+ * characters long, " a " pointing back at " a ". Drawn all at once they are a scribble, and
+ * because their spans overlap, each one's highlight overwrote its neighbour's: an arc would
+ * end on text coloured for a different reference, or on no colour at all, which is what made
+ * the early ones look like they joined unrelated things. The panel features the longest
+ * references instead, chosen so that no two share a character, and says how many it left
+ * out. The ratio, the stat and the token ribbon are all still computed over every token.
+ */
+const MAX_ARCS = 14
+
 interface Model {
   symbols: string[]
   tokens: Lz77Token[]
@@ -83,6 +123,10 @@ interface Model {
   /** Cell index for each source symbol, or -1 if the wrap swallowed it. */
   cellOf: Int32Array
   arcs: Arc[]
+  /** Per grid cell: the reference it belongs to, at either end. */
+  cellMark: (CellMark | null)[]
+  /** What the panel is showing, in its own words — drawn under the text. */
+  arcNote: string
   ribbon: Ribbon
   rawBits: number
   encodedBits: number
@@ -127,7 +171,9 @@ function buildModel(): Model | null {
   const symbols = tokenise(s.text.replace(/\r\n/g, '\n'), s.tokeniser)
   if (!symbols.length) return null
 
-  const grid = layoutTextGrid(symbols, { size: PANEL, cols: s.cols, lineFactor: s.lineFactor })
+  const grid = layoutTextGrid(symbols, {
+    size: PANEL, height: PANEL_H, cols: s.cols, lineFactor: s.lineFactor,
+  })
   const cellOf = new Int32Array(symbols.length).fill(-1)
   grid.cells.forEach((c, ci) => { cellOf[c.index] = ci })
 
@@ -135,14 +181,55 @@ function buildModel(): Model | null {
   const tokens = encodeLz77(symbols, opts)
   const roundTrips = decodeLz77(tokens).join('') === symbols.join('')
 
+  // A curve alone is a thin line over a wall of text — legible on a laptop, invisible on a
+  // projector. Both ends of every reference get a block of its colour behind the glyphs, so
+  // the arc is a connection between two things already visible rather than the only mark.
+  //
+  // Longest first, and a reference is only taken if neither of its ends touches a character
+  // already spoken for. That is what keeps every arc's colour and its two highlights in
+  // agreement — one character belongs to exactly one reference, so nothing overwrites
+  // anything, and the arcs that survive are the ones worth looking at.
   const arcs: Arc[] = []
-  tokens.forEach((t, order) => {
-    if (t.kind !== 'match') return
-    const toCell = cellOf[t.at]
-    const fromCell = cellOf[t.at - t.distance]
-    if (toCell < 0 || fromCell < 0) return
-    arcs.push({ toCell, fromCell, length: t.length, colour: tokenColour(order, 2, colours.dim), order })
-  })
+  const cellMark: (CellMark | null)[] = new Array(grid.cells.length).fill(null)
+  const claimed = new Set<number>()
+  const matches = tokens
+    .map((token, order) => ({ token, order }))
+    .filter(x => x.token.kind === 'match')
+    .sort((a, b) => (b.token as Lz77Match).length - (a.token as Lz77Match).length || a.order - b.order)
+
+  for (const { token, order } of matches) {
+    if (arcs.length >= MAX_ARCS) break
+    const match = token as Lz77Match
+    const toCell = cellOf[match.at]
+    const fromCell = cellOf[match.at - match.distance]
+    if (toCell < 0 || fromCell < 0) continue
+
+    const span: number[] = []
+    for (let k = 0; k < match.length; k++) {
+      span.push(match.at + k, match.at - match.distance + k)
+    }
+    // A match may overlap itself — that is how LZ77 subsumes run-length coding — so it is
+    // only a clash if some *other* reference got there first.
+    if (span.some(at => claimed.has(at))) continue
+
+    const colour = tokenColour(order, 2, colours.dim)
+    arcs.push({ toCell, fromCell, length: match.length, colour, order })
+    for (const at of span) {
+      claimed.add(at)
+      const ci = at >= 0 && at < cellOf.length ? cellOf[at] : -1
+      if (ci >= 0) cellMark[ci] = { colour, order }
+    }
+  }
+  arcs.sort((a, b) => a.order - b.order)
+
+  // Truncation is reported, never hidden — and on the noise, where the count is zero, the
+  // readout is the whole argument for that option being in the picker.
+  const hiddenArcs = matches.length - arcs.length
+  const arcNote = matches.length === 0
+    ? 'not one match — nothing here repeats'
+    : hiddenArcs > 0
+      ? `${matches.length} references · ${arcs.length} drawn, the longest`
+      : `${matches.length} reference${matches.length === 1 ? '' : 's'} found, all drawn`
 
   // A literal shows as its own character; a match shows as the instruction it is. Both go
   // into one ribbon so the stream reads as a single thing the decoder walks.
@@ -168,7 +255,7 @@ function buildModel(): Model | null {
   for (const [sym, code] of codes) deflateTableBits += 8 + utf8Bytes(sym) * 8 + 5 + code.length
 
   return {
-    symbols, tokens, grid, cellOf, arcs, ribbon,
+    symbols, tokens, grid, cellOf, arcs, cellMark, arcNote, ribbon,
     rawBits: utf8Bytes(symbols.join('')) * 8,
     encodedBits: lz77Bits(tokens, opts),
     deflateBits,
@@ -179,10 +266,12 @@ function buildModel(): Model | null {
   }
 }
 
+/** LZ77 alone — the number the stage stamps. */
 const lzRatio = computed(() => {
   const m = model.value
   return m && m.encodedBits > 0 ? m.rawBits / m.encodedBits : 1
 })
+/** LZ77 with the token stream Huffman-coded, i.e. DEFLATE. For the Learn More panel. */
 const deflateRatio = computed(() => {
   const m = model.value
   return m && m.deflateBits > 0 ? m.rawBits / m.deflateBits : 1
@@ -191,21 +280,53 @@ const deflateRatio = computed(() => {
 useStat('lz77', () => {
   const m = model.value
   if (!m) return null
-  const deflating = anim.deflate > 0.5
   return {
-    label: `${deflating ? 'DEFLATE' : 'LZ77'} · ${sample.value.label}, window ${windowSize.value}`,
+    label: `LZ77 · ${sample.value.label}, window ${windowSize.value}`,
     rawBits: m.rawBits,
-    encodedBits: deflating ? m.deflateBits : m.encodedBits,
-    overheadBits: deflating ? m.deflateTableBits : 0,
+    encodedBits: m.encodedBits,
+    overheadBits: 0,
     lossy: !m.roundTrips,
     note: `${m.matches} matches · ${m.literals} literals · ` +
       `${tokenCost(optionsNow()).matchBits} bits per match`,
   }
 })
 
+/**
+ * The fifth phase, as numbers rather than as a beat on the stage.
+ *
+ * Measured on whatever text and window are selected, so the panel answers for what is on
+ * screen rather than for a case chosen in advance — including the noise, where matching
+ * costs more than it saves and Huffman over the tokens barely rescues it.
+ */
+useLearnMore('lz77', () => {
+  const m = model.value
+  if (!m) return null
+  const cost = tokenCost(optionsNow())
+  const tableBytes = Math.ceil(m.deflateTableBits / 8)
+  return [
+    {
+      label: 'LZ77 alone',
+      value: `${lzRatio.value.toFixed(2)}:1`,
+      note: `${m.matches} matches, ${m.literals} literals · ${cost.matchBits} bits a match at ` +
+        `window ${windowSize.value}`,
+    },
+    {
+      label: 'Its token stream, then Huffman-coded — DEFLATE',
+      value: `${deflateRatio.value.toFixed(2)}:1`,
+      note: `payload ${Math.ceil(m.deflateBits / 8).toLocaleString()} bytes, plus a ` +
+        `${tableBytes.toLocaleString()}-byte code table`,
+    },
+    {
+      label: 'Round trip',
+      value: m.roundTrips ? 'exact' : 'broken',
+      note: 'decoded and compared against the original, every rebuild',
+    },
+  ]
+})
+
 // --- Animation -----------------------------------------------------------------------
 
-const anim = { match: 0, tokens: 0, decode: 0, badge: 0, deflate: 0 }
+const anim = { match: 0, tokens: 0, decode: 0, badge: 0 }
 
 const MATCH_DUR = 1.8
 const TOKEN_DUR = 1.2
@@ -214,7 +335,7 @@ const DEC_DUR = 1.4
 function build() {
   const m = model.value
   if (!m) return null
-  anim.match = 0; anim.tokens = 0; anim.decode = 0; anim.badge = 0; anim.deflate = 0
+  anim.match = 0; anim.tokens = 0; anim.decode = 0; anim.badge = 0
 
   const tl = gsap.timeline({ paused: true })
   tl.addLabel('text', 0)
@@ -232,11 +353,7 @@ function build() {
   tl.fromTo(anim, { decode: 0 }, { decode: 1, duration: DEC_DUR, ease: 'none' }, tokensAt + 0.2)
   const decodedAt = tokensAt + 0.2 + DEC_DUR + 0.3
   tl.addLabel('decoded', decodedAt)
-
-  tl.fromTo(anim, { deflate: 0 }, { deflate: 1, duration: 0.9, ease: 'power2.inOut' }, decodedAt + 0.2)
-  const deflateAt = decodedAt + 0.2 + 0.9 + 0.2
-  tl.addLabel('deflate', deflateAt)
-  tl.to({}, { duration: 0.01 }, deflateAt)
+  tl.to({}, { duration: 0.01 }, decodedAt)
   return tl
 }
 
@@ -285,9 +402,9 @@ function drawArcs(ctx: CanvasRenderingContext2D) {
     const to = cellCentre(m.grid, m.grid.cells[arc.toCell], LEFT_X, GRID_Y)
     const from = cellCentre(m.grid, m.grid.cells[arc.fromCell], LEFT_X, GRID_Y)
     const lift = Math.min(90, 16 + Math.abs(to.x - from.x) * 0.22 + Math.abs(to.y - from.y) * 0.3)
-    ctx.globalAlpha = reveal * 0.5
+    ctx.globalAlpha = reveal * 0.9
     ctx.strokeStyle = arc.colour
-    ctx.lineWidth = Math.min(4, 1 + arc.length * 0.12)
+    ctx.lineWidth = Math.min(8, 3 + arc.length * 0.18)
     ctx.beginPath()
     ctx.moveTo(from.x, from.y)
     ctx.quadraticCurveTo((from.x + to.x) / 2, Math.min(from.y, to.y) - lift, to.x, to.y)
@@ -303,32 +420,18 @@ function drawCentre(ctx: CanvasRenderingContext2D) {
 
   if (m.ribbon.hidden > 0 && anim.tokens > 0.98) {
     ctx.fillStyle = colours.dim
-    ctx.font = '14px Inter, system-ui, sans-serif'
+    ctx.font = '26px Inter, system-ui, sans-serif'
     ctx.textAlign = 'right'
     ctx.textBaseline = 'middle'
-    ctx.fillText(`+ ${m.ribbon.hidden} more`, RIBBON_X + RIBBON_W, RIBBON_Y + RIBBON_H + 6)
+    ctx.fillText(`+ ${m.ribbon.hidden} more`, RIBBON_X + RIBBON_W, RIBBON_Y + RIBBON_H + 8)
   }
 
   if (anim.badge <= 0.01) return
-  // One number, interpolated from what LZ77 alone managed to what it manages once the
-  // token stream is Huffman-coded. The label under it is the payoff.
-  const from = 1 + (lzRatio.value - 1) * anim.badge
-  const shown = from + (deflateRatio.value - from) * anim.deflate
-  drawStamp(ctx, `${shown.toFixed(1)}× SMALLER`, CENTRE_X + CENTRE_W / 2, BADGE_Y,
-    colours.good, { alpha: anim.badge })
-
-  if (anim.deflate > 0.01) {
-    ctx.globalAlpha = anim.deflate
-    ctx.fillStyle = colours.accent
-    ctx.font = '600 24px Inter, system-ui, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('LZ77 + Huffman — that is DEFLATE', CENTRE_X + CENTRE_W / 2, BADGE_Y + 62)
-    ctx.font = '16px Inter, system-ui, sans-serif'
-    ctx.fillStyle = colours.dim
-    ctx.fillText(`gzip, zip, PNG and HTTP all ship this pair`, CENTRE_X + CENTRE_W / 2, BADGE_Y + 92)
-    ctx.globalAlpha = 1
-  }
+  // Counts up from 1 as the badge lands, so the wording passes through SAME SIZE on its way
+  // to whatever this text and window actually managed — including 1.1× BIGGER, on noise.
+  const verdict = ratioVerdict(1 + (lzRatio.value - 1) * anim.badge)
+  drawStamp(ctx, verdict.text, CENTRE_X + CENTRE_W / 2, BADGE_Y,
+    verdict.better ? colours.good : colours.warn, { alpha: anim.badge })
 }
 
 function draw(ctx: CanvasRenderingContext2D) {
@@ -340,15 +443,32 @@ function draw(ctx: CanvasRenderingContext2D) {
   const total = Math.max(1, m.grid.cells.length)
   const decHead = anim.decode * total
 
-  panel(ctx, LEFT_X, GRID_Y, PANEL, PANEL)
+  panel(ctx, LEFT_X, GRID_Y, PANEL, PANEL_H)
+  // Highlights arrive with the cursor that found them, on the same clock as the arcs.
+  const matched = anim.match * m.tokens.length
   drawTextGrid(ctx, m.grid, LEFT_X, GRID_Y, {
     textAlpha: () => 1,
+    boxAlpha: i => {
+      const mark = m.cellMark[i]
+      return mark ? Math.max(0, Math.min(1, matched - mark.order)) : 0
+    },
+    boxColour: i => m.cellMark[i]?.colour ?? null,
+    boxOpacity: 0.5,
     text: colours.text,
     dim: colours.border,
   })
   drawArcs(ctx)
 
-  panel(ctx, RIGHT_X, GRID_Y, PANEL, PANEL)
+  // Under the text, in the space the message did not need: what the panel is showing.
+  if (anim.match > 0.98) {
+    ctx.fillStyle = colours.dim
+    ctx.font = '26px Inter, system-ui, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(m.arcNote, LEFT_X + 14, GRID_Y + PANEL_H - 24)
+  }
+
+  panel(ctx, RIGHT_X, GRID_Y, PANEL, PANEL_H)
   drawTextGrid(ctx, m.grid, RIGHT_X, GRID_Y, {
     textAlpha: i => Math.max(0, Math.min(1, decHead - i)),
     text: colours.text,
@@ -358,7 +478,7 @@ function draw(ctx: CanvasRenderingContext2D) {
   drawCentre(ctx)
 
   const text = m.roundTrips ? 'LOSSLESS' : 'LOSSY'
-  drawStamp(ctx, text, RIGHT_X + PANEL - 150, GRID_Y + PANEL - 42,
+  drawStamp(ctx, text, RIGHT_X + PANEL - 150, GRID_Y + PANEL_H - 42,
     m.roundTrips ? colours.good : colours.warn,
     { alpha: smoothstep(0.94, 1, anim.decode) })
 }

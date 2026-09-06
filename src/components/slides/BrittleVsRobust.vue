@@ -116,7 +116,7 @@ const mostRobust = computed(() =>
   display: flex;
   gap: 1rem;
   align-items: center;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 
@@ -186,13 +186,13 @@ const mostRobust = computed(() =>
   top: -0.85rem;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.52rem;
+  font-size: 0.62rem;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
 .name {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   text-align: center;
   line-height: 1.3;
 }
@@ -200,7 +200,7 @@ const mostRobust = computed(() =>
 .stats {
   display: flex;
   gap: 0.5rem;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-variant-numeric: tabular-nums;
 }
 

@@ -84,7 +84,7 @@ export function usePhaseStage(opts: PhaseStageOptions): PhaseStage {
   const last = opts.stages.length - 1
 
   const canvas = ref<HTMLCanvasElement>()
-  const stage = ref(deck.learnMode.value ? last : Math.min(last, deck.fragment.value))
+  const stage = ref(Math.min(last, deck.fragment.value))
   const progress = ref(0)
 
   let tl: gsap.core.Timeline | null = null
@@ -136,7 +136,7 @@ export function usePhaseStage(opts: PhaseStageOptions): PhaseStage {
     const target = stageAtTime(tl.time())
     if (target !== stage.value) {
       stage.value = target
-      if (!deck.learnMode.value) deck.fragment.value = target
+      deck.fragment.value = target
     }
     dirty = true
   }
@@ -185,7 +185,7 @@ export function usePhaseStage(opts: PhaseStageOptions): PhaseStage {
     // Picking the phase you are already in replays the step that got you there.
     if (target === stage.value && target > 0 && tl) tl.seek(opts.stages[target - 1])
     stage.value = target
-    if (!deck.learnMode.value) deck.fragment.value = target
+    deck.fragment.value = target
     goToStage(target)
   }
 
@@ -217,12 +217,6 @@ export function usePhaseStage(opts: PhaseStageOptions): PhaseStage {
     if (target === stage.value) return
     stage.value = target
     goToStage(target)
-  })
-
-  watch(() => deck.learnMode.value, on => {
-    if (!on) return
-    stage.value = last
-    goToStage(last)
   })
 
   onMounted(() => {

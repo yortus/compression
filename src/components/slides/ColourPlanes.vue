@@ -220,7 +220,7 @@ const PLANE_META: { key: PlaneKey; label: string; color: string }[] = [
 
 .view-toggle button {
   padding: 0.2rem 0.5rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   border-radius: 4px;
 }
 
@@ -255,7 +255,7 @@ const PLANE_META: { key: PlaneKey; label: string; color: string }[] = [
 }
 
 .runs {
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -287,7 +287,7 @@ const PLANE_META: { key: PlaneKey; label: string; color: string }[] = [
 }
 
 .k {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -323,7 +323,7 @@ const PLANE_META: { key: PlaneKey; label: string; color: string }[] = [
 .pairs {
   display: flex;
   gap: 0.7rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }

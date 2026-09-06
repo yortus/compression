@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { scaleQTable, LUMA_TABLE } from '../../engine/jpeg/quantization'
 import { inverseDCT } from '../../engine/jpeg/dct'
@@ -110,12 +109,6 @@ onMounted(drawAll)
         <canvas ref="reconCanvas" />
       </div>
     </div>
-    <template #notes>
-      <ExpandablePanel label="How it works">
-        <p>Each DCT coefficient is divided by a value from the quantization table and rounded to the nearest integer. Higher-frequency coefficients get divided by larger numbers, often becoming zero.</p>
-        <p style="margin-top:0.5rem">This is the <strong>only lossy step</strong> in JPEG. Lower quality = larger divisors = more zeros = smaller file but more artifacts.</p>
-      </ExpandablePanel>
-    </template>
   </SlideLayout>
 </template>
 

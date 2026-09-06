@@ -92,7 +92,7 @@ const leading = () => {
   return { u: Math.floor(k / 8) % 8, v: k % 8 }
 }
 
-const built = computed(() => (deck.learnMode.value ? true : deck.fragment.value >= 1))
+const built = computed(() => deck.fragment.value >= 1)
 
 function buildTimeline() {
   tl?.kill()
@@ -157,7 +157,7 @@ function renderTiles() {
   }
 }
 
-function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, colour: string, size = 13, align: CanvasTextAlign = 'center') {
+function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, colour: string, size = 15, align: CanvasTextAlign = 'center') {
   ctx.fillStyle = colour
   ctx.font = `${size}px Inter, system-ui, sans-serif`
   ctx.textAlign = align
@@ -194,7 +194,7 @@ function drawDetail(ctx: CanvasRenderingContext2D) {
   const x = DETAIL_X + 60
   const y = DETAIL_Y
 
-  text(ctx, 'one pattern, close up', x + DETAIL_SIZE / 2, y - 76, colours.text, 15)
+  text(ctx, 'one pattern, close up', x + DETAIL_SIZE / 2, y - 76, colours.text, 17)
 
   wave(ctx, SHAPES[v], x, y - 62, DETAIL_SIZE, 48, false, true)
   wave(ctx, SHAPES[u], x - 60, y, 48, DETAIL_SIZE, true, true)
@@ -208,8 +208,8 @@ function drawDetail(ctx: CanvasRenderingContext2D) {
   ctx.lineWidth = 2
   ctx.strokeRect(x, y, DETAIL_SIZE, DETAIL_SIZE)
 
-  text(ctx, `wave ${u} down  ×  wave ${v} across`, x + DETAIL_SIZE / 2, y + DETAIL_SIZE + 26, colours.text, 14)
-  text(ctx, 'every pixel is one multiplication', x + DETAIL_SIZE / 2, y + DETAIL_SIZE + 48, colours.dim, 12)
+  text(ctx, `wave ${u} down  ×  wave ${v} across`, x + DETAIL_SIZE / 2, y + DETAIL_SIZE + 26, colours.text, 16)
+  text(ctx, 'every pixel is one multiplication', x + DETAIL_SIZE / 2, y + DETAIL_SIZE + 48, colours.dim, 15)
 }
 
 function draw() {
@@ -224,11 +224,11 @@ function draw() {
 
   const lead = leading()
 
-  text(ctx, 'the same eight waves, across', GRID_X + SPAN / 2, 16, colours.dim, 13)
+  text(ctx, 'the same eight waves, across', GRID_X + SPAN / 2, 16, colours.dim, 15)
   ctx.save()
   ctx.translate(14, GRID_Y + SPAN / 2)
   ctx.rotate(-Math.PI / 2)
-  text(ctx, 'and down', 0, 0, colours.dim, 13)
+  text(ctx, 'and down', 0, 0, colours.dim, 15)
   ctx.restore()
 
   // The eight waves along each edge.
@@ -346,13 +346,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 
 .chip {
   padding: 0.16rem 0.45rem;
-  font-size: 0.56rem;
+  font-size: 0.62rem;
   border-radius: 4px;
 }
 

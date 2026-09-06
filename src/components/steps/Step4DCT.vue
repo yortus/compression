@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, computed, watch, onMounted } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
 
@@ -115,12 +114,6 @@ onMounted(drawAll)
         </p>
       </div>
     </div>
-    <template #notes>
-      <ExpandablePanel label="How it works">
-        <p>The DCT transforms an 8×8 block of pixel values into 8×8 frequency coefficients.</p>
-        <p style="margin-top:0.5rem">The top-left coefficient (DC) is the average brightness. Moving right/down increases horizontal/vertical frequency. Both grids hold 64 numbers — nothing has been thrown away, and nothing saved. What changes is that the numbers are now sorted by how much they matter.</p>
-      </ExpandablePanel>
-    </template>
   </SlideLayout>
 </template>
 

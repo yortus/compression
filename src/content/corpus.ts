@@ -130,6 +130,11 @@ export const SAMPLE_TEXTS: SampleText[] = [
  * that is the difference between it and the Huffman slide, not an oversight. The Austen
  * paragraph is deliberately the same one `SAMPLE_TEXTS` uses, so the two slides' ratios on
  * identical input can be compared directly.
+ *
+ * Thirty columns, not forty-six: the column count is what sets the type size, and the slide
+ * pays for the wider cells out of the extra rows its tall panels have. Every text here has
+ * to fit those rows without the layout's shrink retries firing — that is the check to make
+ * if one of them is ever rewritten.
  */
 export const LZ77_TEXTS: SampleText[] = [
   {
@@ -137,18 +142,15 @@ export const LZ77_TEXTS: SampleText[] = [
     label: 'Boilerplate',
     unit: 'characters',
     tokeniser: 'graphemes',
-    cols: 46,
-    lineFactor: 1.2,
+    cols: 30,
+    lineFactor: 1.15,
     credit: 'a licence header, three times — long-range repeats',
     text: [
-      'Copyright (c) 2026 Troy Gerwien.',
-      'Licensed under the MIT License. See LICENSE.',
+      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
       '',
-      'Copyright (c) 2026 Troy Gerwien.',
-      'Licensed under the MIT License. See LICENSE.',
+      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
       '',
-      'Copyright (c) 2026 Troy Gerwien.',
-      'Licensed under the MIT License. See LICENSE.',
+      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
     ].join('\n'),
   },
   {
@@ -156,8 +158,8 @@ export const LZ77_TEXTS: SampleText[] = [
     label: 'Source code',
     unit: 'characters',
     tokeniser: 'graphemes',
-    cols: 46,
-    lineFactor: 1.2,
+    cols: 30,
+    lineFactor: 1.15,
     credit: 'the shape of the thing gzip was built for',
     text: [
       'function encode(input, table) {',
@@ -182,8 +184,8 @@ export const LZ77_TEXTS: SampleText[] = [
     label: 'English',
     unit: 'characters',
     tokeniser: 'graphemes',
-    cols: 46,
-    lineFactor: 1.2,
+    cols: 30,
+    lineFactor: 1.15,
     credit: 'Austen — the same paragraph the Huffman slide codes',
     text: SAMPLE_TEXTS[0].text,
   },
@@ -192,8 +194,8 @@ export const LZ77_TEXTS: SampleText[] = [
     label: 'ASCII noise',
     unit: 'characters',
     tokeniser: 'graphemes',
-    cols: 46,
-    lineFactor: 1.2,
+    cols: 30,
+    lineFactor: 1.15,
     credit: 'nothing repeats, so nothing matches — the control case',
     text: asciiNoise(560),
   },

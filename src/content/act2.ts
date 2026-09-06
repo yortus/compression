@@ -21,7 +21,6 @@ import type { ProseRegistry } from './types'
  */
 export const ACT2_PROSE: ProseRegistry = {
   'rgb-planes': {
-    speaker: 'Split it into three. Free, helps a bit — but look, they are the same picture.',
     learner:
       'Start by pulling the image apart. Instead of storing red, green and blue interleaved as ' +
       'triples, visit all the red bytes, then all the green, then all the blue. Nothing is ' +
@@ -36,7 +35,6 @@ export const ACT2_PROSE: ProseRegistry = {
       'The slide reads the number off whatever image is loaded rather than promising you one.',
   },
   'ycbcr': {
-    speaker: 'Rotate the axes. Same size, no loss — but the planes stop being alike.',
     learner:
       'The fix is to change what the three planes mean. Y is a weighted average of the three ' +
       'colours — brightness. Cb and Cr are what is left: how much bluer and how much redder this ' +
@@ -52,7 +50,6 @@ export const ACT2_PROSE: ProseRegistry = {
       'the other two are vague washes — yet all three hold exactly the same number of bytes.',
   },
   'chroma-subsample': {
-    speaker: 'Shrink the two you were not reading. Half the data, every image, every time.',
     learner:
       'So store less of them. The luma plane is kept at full resolution and the two chroma planes ' +
       'are stored at half resolution in each direction, which is where the name 4:2:0 comes from. ' +
@@ -63,5 +60,27 @@ export const ACT2_PROSE: ProseRegistry = {
       'works purely because the plane holding the detail your eye is good at is the one we kept — ' +
       'a fact about human retinas, not about images. Do the same thing to Y instead and the ' +
       'picture falls apart.',
+    more: {
+      title: 'Why the ratio never moves',
+      blocks: [
+        {
+          kind: 'para',
+          text:
+            'Subsampling is the one stage whose saving is fixed in advance. 4:2:0 halves both ' +
+            'axes of both chroma planes, so they cost a quarter of their samples and the total ' +
+            'lands at half the data on every image ever — a photograph, a flat graphic, a ' +
+            'gradient. Nothing about the picture is consulted, which is why it is safe to do ' +
+            'first and cheap to reason about.',
+        },
+        {
+          kind: 'para',
+          text:
+            'It is also the stage that is lossy for a reason about people rather than about ' +
+            'data: the eye resolves far less colour detail than luminance detail, so what goes ' +
+            'here is mostly detail a viewer cannot see. Point it at saturated red text on a blue ' +
+            'background and the model breaks down visibly — which is why 4:4:4 exists.',
+        },
+      ],
+    },
   },
 }

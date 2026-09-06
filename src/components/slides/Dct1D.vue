@@ -154,13 +154,13 @@ function barHeight(c: number) {
 }
 
 .input-row button {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
 }
 
 .hint {
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-style: italic;
   margin-left: 0.4rem;
@@ -183,7 +183,7 @@ function barHeight(c: number) {
 }
 
 .pane h3 {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -191,7 +191,7 @@ function barHeight(c: number) {
 .legend {
   display: flex;
   gap: 0.9rem;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 
@@ -241,7 +241,7 @@ function barHeight(c: number) {
 .axis {
   display: flex;
   justify-content: space-between;
-  font-size: 0.5rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 
@@ -250,7 +250,7 @@ function barHeight(c: number) {
   gap: 1.5rem;
   align-items: center;
   justify-content: center;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 

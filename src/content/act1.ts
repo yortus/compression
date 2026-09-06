@@ -15,7 +15,6 @@ import type { ProseRegistry } from './types'
  */
 export const ACT1_PROSE: ProseRegistry = {
   'rle-bitmap': {
-    speaker: 'Same encoder throughout. Change what a pixel *is* and the ratio moves thirty-fold.',
     learner:
       'Run-length encoding is about the simplest compression there is: instead of writing the ' +
       'same byte over and over, write it once with a count. The encoder on this slide never ' +
@@ -33,8 +32,36 @@ export const ACT1_PROSE: ProseRegistry = {
       'the one row that *would* have found runs can only do it by throwing colour away. Watch the ' +
       'decoded panel band, and the stamp turn from LOSSLESS to LOSSY. Palettising is usually a free ' +
       'reframe and sometimes it is the lossy step. Note too that the palette has to travel with the ' +
-      'indices — it is in the band at the bottom, and counted as overhead in the numbers above. ' +
-      'Real formats do all of this: a Windows BMP offers BI_RLE8 and BI_RLE4 and no 24-bit ' +
-      'run-length mode at all, and now you can see why.',
+      'indices — it is in the band at the bottom, and counted as overhead in the numbers above.',
+    more: {
+      title: 'How a real format says “run”',
+      blocks: [
+        {
+          kind: 'para',
+          text:
+            'A decoder cannot tell a count from a literal unless both sides already agree how. ' +
+            'Windows BMP’s convention is a count of zero: 00 00 ends the row, 00 01 ends the ' +
+            'image, 00 02 is a jump, and 00 n means n literal pixels follow, padded to a word. ' +
+            'None of that is in the file — it is in the specification, which both ends read in ' +
+            'advance. That is the shared primer, shipped in a format everyone has opened by ' +
+            'accident.',
+        },
+        {
+          kind: 'para',
+          text:
+            'BMP settles this slide’s argument by itself: it offers BI_RLE8 and BI_RLE4 and no ' +
+            '24-bit run-length mode at all. Microsoft already knew run-length coding does not ' +
+            'work on interleaved colour — the format’s own compression field says so.',
+        },
+        {
+          kind: 'para',
+          text:
+            'engine/formats/bmp.ts implements all of it for real — the 54-byte header, four ' +
+            'bytes per palette entry, rows padded to a four-byte boundary, BI_RLE8 encoded and ' +
+            'decoded per spec — with round-trip tests. The slide uses its own 16×16 artwork ' +
+            'because 256 bytes fit on screen in full and a photograph’s 786,432 do not.',
+        },
+      ],
+    },
   },
 }

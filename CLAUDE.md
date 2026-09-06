@@ -72,8 +72,20 @@ itself, in the panel or stamp where they are made — so what `useStat` now feed
 scoreboard `jpeg-pipeline` reads back. `StatsHUD.vue` is the old always-on readout, kept but no
 longer mounted anywhere.
 
-**`src/content/` — the words.** Per-slide prose in two registers (`speaker`, `learner`), keyed by
-slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
+**`src/content/` — the words.** Per-slide prose keyed by slide id: `learner` is the paragraph the
+presenter would have said, and the optional `more` is the detail behind it, as `{ kind: 'para' |
+'list' | 'link' }` blocks. Both are read only by the Learn More panel. There is no learn mode and
+no speaker-note band any more — a slide carries its own argument, and everything else is behind one
+button, so the deck has a single reading and no state it can be left in.
+
+**Learn More.** `I`, or the button in the top bar, opens `deck/LearnMore.vue` over the current
+slide: the slide's `learner` paragraph, then its `more` blocks, then whatever the slide has
+*measured* for the picker and slider positions on screen. That last part is `useLearnMore(id, () =>
+LearnMoreFact[])` in `deck/useLearnMore.ts` — same shape as `useStat`, different job: `useStat`
+publishes the one headline ratio, this publishes everything else the slide happens to know. The
+panel takes the keyboard while open and closes when the slide changes, so it can never describe a
+slide that is no longer on screen. It is where detail goes when a slide is cut down: `lz77`'s
+DEFLATE phase and `rle-bitmap`'s escape-byte convention both live there now rather than on stage.
 
 ### Things worth knowing before editing
 
@@ -163,8 +175,8 @@ const { canvas, stage, selectStage, rebuild } = usePhaseStage({
 })
 ```
 
-`usePhaseStage` owns the DPR-aware backing store, the gated redraw loop, the two-way sync between
-`stage` and `deck.fragment`, and learn mode. `beforeBuild` runs before every build, so a
+`usePhaseStage` owns the DPR-aware backing store, the gated redraw loop, and the two-way sync
+between `stage` and `deck.fragment`. `beforeBuild` runs before every build, so a
 late-loading font re-measures the layout instead of replaying over stale metrics. The template is
 a `.stage-wrap` flex box around the canvas plus a `.stage-controls` row of `.seg-group` buttons —
 all four classes are in `global.css`, and the wrapper is what lets `max-width/max-height: 100%`
@@ -180,7 +192,15 @@ Rules the six follow, learned the hard way:
 - **Nothing on the stage that is not a live readout.** Captions belong in the control row (a
   `.desc` above the picker) or nowhere. No panel titles, no phase-name captions.
 - **Two stamps, both at the end of their animation.** `drawStamp` from `rendering/stamp.ts` is the
-  only place the ratio and the verdict are worded or coloured.
+  only place the ratio and the verdict are worded or coloured, and `ratioVerdict` there is the only
+  place a ratio is turned into words: above 1 it reads `N× SMALLER` in the positive colour, below it
+  `N× BIGGER`, and anything that would print as 1.0 reads `SAME SIZE` — both of those in the warning
+  colour. Three slides used to write the ratio straight into a SMALLER stamp and would happily claim
+  "0.9× smaller", which is a loss, or "1.0× smaller", which is nothing.
+- **The badge prices the stream, never the primer.** A code table or a palette is a fixed cost that
+  does not scale with the message, so it stays out of the ratio on the stamp. It is still counted —
+  `useStat` carries it as `overheadBits`, the primer band states it in bytes, and the Learn More
+  panel gives it in full.
 - **Truncation is reported, and type is never scaled to fit.** `layoutRibbon` returns `hidden`;
   the numbers a slide publishes are always computed over the whole stream, never the visible part.
   Fitting the font size to the content makes a short stream render bigger than a long one, which
@@ -195,3 +215,20 @@ Rules the six follow, learned the hard way:
 for a projector, so a `0.9rem` label is normal body text here, not fine print. Colours come from the
 dark-theme CSS custom properties there (`--bg*`, `--text*`, `--accent`, `--positive`/`--warning`/
 `--negative`); use those rather than literal colours so slides stay consistent.
+
+**There is a floor, and it is not negotiable: `0.62rem` (~17px) for anything on a slide, and about
+1.4% of the stage width for text drawn on a canvas** — 22px on the 1600-unit stages, 15 on
+`basis-2d`'s 1080-unit one, because a stage is scaled to the slide area rather than drawn at 1:1.
+A whole tier of the deck used to sit at `0.5–0.55rem` and the zigzag strips at `0.42rem`, which is
+legible on the laptop you are building on and invisible from the back of a room. When content will
+not fit at the floor, cut the content — fewer entries, half the block, a shorter sentence — and
+report what was dropped as a count. Never shrink the type, and never scale it to fit.
+Presenter-only chrome (`DeckNav`, `ControlBar`, `ImagePicker`) is exempt; it is read from a laptop
+at arm's length.
+
+Two knobs decide type size indirectly, and both are easy to mistake for layout. A text grid's
+`cols` *is* its font size (`panel width / cols`, measured to fill the cell), so a picker's corpus
+entry is a legibility setting; and `layoutRibbon`'s `fitCols` does the same for a hex dump. Under
+about 34 columns in a 486-unit panel the type drops below the floor. A slide with spare height
+should pass `height` to `layoutTextGrid` and buy rows instead — that is what `lz77` does, and it
+is why its panels are 486 × 786 rather than square.

@@ -130,13 +130,13 @@ const active = ref<string | null>(null)
 }
 
 .corner-example {
-  font-size: 0.52rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-family: monospace;
 }
 
 .corner-detail {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   line-height: 1.35;
   color: var(--text-secondary);
   max-height: 0;
@@ -169,7 +169,7 @@ blockquote {
 cite {
   display: block;
   margin-top: 0.3rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-style: normal;
   color: var(--text-secondary);
 }

@@ -65,6 +65,16 @@ useStat('zigzag', () => {
   }
 })
 
+/**
+ * Half the block, at a size that can be read from the back of a room.
+ *
+ * Sixty-four cells across the strip put the coefficients at about twelve pixels, which made
+ * the one comparison this slide exists for the least legible thing on it. The tail is
+ * reported as a count instead — and on the zigzag strip that count is itself the argument,
+ * because it is nearly always every remaining coefficient, all zero.
+ */
+const SHOWN = 32
+
 /** Zero runs in a strip, so the shading has something to shade. */
 function runs(flat: readonly number[]) {
   const out: { start: number; length: number }[] = []
@@ -84,8 +94,26 @@ function nonZeroGaps(lengths: number[] | undefined) {
   return (lengths ?? []).filter(n => n > 0).length
 }
 
-const rasterRuns = computed(() => (raster.value ? runs(raster.value) : []))
-const zigzagRuns = computed(() => (zigzag.value ? runs(zigzag.value) : []))
+/** Runs clipped to the visible half, so the shading lines up with the cells under it. */
+function visibleRuns(flat: readonly number[] | null) {
+  if (!flat) return []
+  return runs(flat)
+    .filter(r => r.start < SHOWN)
+    .map(r => ({ start: r.start, length: Math.min(r.length, SHOWN - r.start) }))
+}
+
+/** The tail, as a count. Truncation is reported, never hidden — see CLAUDE.md. */
+function tailOf(flat: readonly number[] | null) {
+  if (!flat) return ''
+  const rest = flat.slice(SHOWN)
+  const nonZero = rest.filter(v => v !== 0).length
+  return nonZero === 0
+    ? `+ ${rest.length} more, every one zero`
+    : `+ ${rest.length} more, ${nonZero} non-zero`
+}
+
+const rasterRuns = computed(() => visibleRuns(raster.value))
+const zigzagRuns = computed(() => visibleRuns(zigzag.value))
 
 function play() {
   stop()
@@ -185,19 +213,20 @@ onUnmounted(stop)
             <h3>Read row by row</h3>
             <div class="strip">
               <span
-                v-for="(v, i) in raster ?? []" :key="i"
+                v-for="(v, i) in (raster ?? []).slice(0, SHOWN)" :key="i"
                 class="cell" :class="{ zero: v === 0 }"
               >{{ v }}</span>
               <span
                 v-for="(r, i) in rasterRuns" :key="'r' + i"
                 class="run raster"
-                :style="{ left: (r.start / 64) * 100 + '%', width: (r.length / 64) * 100 + '%' }"
+                :style="{ left: (r.start / SHOWN) * 100 + '%', width: (r.length / SHOWN) * 100 + '%' }"
               />
             </div>
             <p class="tally">
               <strong>{{ comparison?.rasterPairs ?? 0 }}</strong> pairs ·
               {{ comparison?.rasterSymbols ?? 0 }} distinct symbols ·
               gaps <span class="runs">{{ (comparison?.rasterRunLengths ?? []).join(' ') || 'none' }}</span>
+              <span class="tail">{{ tailOf(raster) }}</span>
             </p>
           </div>
 
@@ -205,19 +234,20 @@ onUnmounted(stop)
             <h3>Read in zigzag order</h3>
             <div class="strip">
               <span
-                v-for="(v, i) in zigzag ?? []" :key="i"
+                v-for="(v, i) in (zigzag ?? []).slice(0, SHOWN)" :key="i"
                 class="cell" :class="{ zero: v === 0 }"
               >{{ v }}</span>
               <span
                 v-for="(r, i) in zigzagRuns" :key="'z' + i"
                 class="run zig"
-                :style="{ left: (r.start / 64) * 100 + '%', width: (r.length / 64) * 100 + '%' }"
+                :style="{ left: (r.start / SHOWN) * 100 + '%', width: (r.length / SHOWN) * 100 + '%' }"
               />
             </div>
             <p class="tally">
               <strong>{{ comparison?.zigzagPairs ?? 0 }}</strong> pairs ·
               <strong class="good">{{ comparison?.zigzagSymbols ?? 0 }}</strong> distinct symbols ·
               gaps <span class="runs good">{{ (comparison?.zigzagRunLengths ?? []).join(' ') || 'none' }}</span>
+              <span class="tail">{{ tailOf(zigzag) }}</span>
             </p>
           </div>
         </div>
@@ -285,7 +315,7 @@ onUnmounted(stop)
 
 .chip {
   padding: 0.18rem 0.5rem;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   border-radius: 4px;
 }
 
@@ -298,7 +328,7 @@ onUnmounted(stop)
 }
 
 .strip-block h3 {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 0.25rem;
@@ -307,7 +337,7 @@ onUnmounted(stop)
 .strip {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(64, 1fr);
+  grid-template-columns: repeat(32, 1fr);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -315,12 +345,12 @@ onUnmounted(stop)
 }
 
 .cell {
-  height: 1.5rem;
+  height: 1.7rem;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: monospace;
-  font-size: 0.42rem;
+  font-size: 0.62rem;
   color: var(--text);
   border-right: 1px solid rgba(0, 0, 0, 0.35);
 }
@@ -349,7 +379,7 @@ onUnmounted(stop)
 }
 
 .tally {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   margin-top: 0.25rem;
   font-variant-numeric: tabular-nums;
@@ -358,6 +388,13 @@ onUnmounted(stop)
 .runs {
   font-family: monospace;
   letter-spacing: 0.05em;
+}
+
+/* What the strip could not show at a readable size, as a count. */
+.tail {
+  margin-left: 0.5rem;
+  font-style: italic;
+  opacity: 0.75;
 }
 
 .good {

@@ -146,7 +146,7 @@ function display(code: number) {
 }
 
 h3 {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
@@ -186,7 +186,7 @@ h3 {
 }
 
 .ideal {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -228,7 +228,7 @@ h3 {
 
 .headline .caption {
   width: 100%;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-secondary);
@@ -269,7 +269,7 @@ h3 {
 
 .cmp .sub {
   grid-column: 1 / -1;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
 }
 

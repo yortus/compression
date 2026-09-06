@@ -16,6 +16,11 @@ import { graphemes } from '../engine/codecs/tokenise'
  * — rather than fitting the widest cluster — keeps the common case at full size and lets
  * the occasional wide conjunct be condensed by `fillText`'s own maxWidth.
  *
+ * **The column count is the type size.** A cell is `size / cols` wide and the font is
+ * measured to fill it, so asking for more columns is asking for smaller type — under about
+ * thirty-four columns in a 486-unit panel it drops below what a projector can carry. A slide
+ * with spare height should pass `height` and let the message run to more rows instead.
+ *
  * **A cell holds one grapheme cluster, not one code point.** A Devanagari consonant plus
  * its vowel sign is two code points and one visible character; splitting it puts a matra in
  * a box of its own. Tokens are drawn as a single `fillText` across their whole span, which
@@ -45,8 +50,16 @@ export interface TextGrid {
 }
 
 export interface GridOptions {
-  /** Side of the square panel, in stage units. */
+  /** Width of the panel, in stage units — and its height too, unless `height` says otherwise. */
   size: number
+  /**
+   * Height of the panel, when it is not square.
+   *
+   * Width sets the type size (it is `size / cols` wide per cell); height only decides how
+   * many rows there is room for. A slide with spare vertical space should spend it here
+   * rather than on a bigger `cols`, because more rows let the same message be set larger.
+   */
+  height?: number
   cols: number
   /** Line height as a multiple of the font size; scripts with marks need more. */
   lineFactor: number
@@ -122,15 +135,16 @@ export function layoutTextGrid(tokens: readonly string[], opts: GridOptions): Te
   const spans = tokens.map(t => (t === '\n' ? 1 : graphemes(t).length))
   const cellW = opts.size / opts.cols
 
+  const height = opts.height ?? opts.size
   let fontSize = opts.fontSize ?? fitFont(tokens, spans, cellW)
   let rowH = fontSize * opts.lineFactor
-  let rows = Math.max(1, Math.floor(opts.size / rowH))
+  let rows = Math.max(1, Math.floor(height / rowH))
   let laid = place(tokens, spans, opts.cols, rows)
   // A forced size is forced: shrinking it would defeat the point of sharing one.
   for (let attempt = 0; attempt < (opts.fontSize ? 0 : 8) && laid.overflow; attempt++) {
     fontSize *= 0.92
     rowH = fontSize * opts.lineFactor
-    rows = Math.max(1, Math.floor(opts.size / rowH))
+    rows = Math.max(1, Math.floor(height / rowH))
     laid = place(tokens, spans, opts.cols, rows)
   }
 

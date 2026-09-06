@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
+import { ref, computed, provide, watch, onMounted, onUnmounted } from 'vue'
 import { createDeck, DECK_KEY } from './useDeck'
 import { createStats, STATS_KEY } from '../stats/useStats'
+import { createLearnMore, LEARN_MORE_KEY } from './useLearnMore'
+import LearnMore from './LearnMore.vue'
 import ControlBar from './ControlBar.vue'
 import DeckNav from './DeckNav.vue'
 import Loupe from './Loupe.vue'
@@ -19,6 +21,12 @@ import { proseFor } from '../content'
  * being made, not in a strip above the picture. Slides still publish through
  * `useStat` — the scoreboard `jpeg-pipeline` reads back is fed by that, not by
  * anything rendered here.
+ *
+ * There is no learn mode and no speaker-note band either. Both were ways of putting a
+ * second layer of words on the slide itself, and both are replaced by one button: Learn
+ * More opens the detail for the slide on screen, and closes again. That leaves the deck
+ * with a single reading — what the audience sees is what there is — and one place to look
+ * for everything else.
  */
 const deck = createDeck()
 provide(DECK_KEY, deck)
@@ -26,17 +34,39 @@ provide(DECK_KEY, deck)
 const stats = createStats()
 provide(STATS_KEY, stats)
 
+const learnMore = createLearnMore()
+provide(LEARN_MORE_KEY, learnMore)
+
 const showHelp = ref(false)
-const showSpeakerNotes = ref(false)
+const showLearnMore = ref(false)
 
 // Slide words live in src/content, so they can be rewritten without touching layout.
 const prose = computed(() => proseFor(deck.slide.value.id))
+
+/**
+ * The button is always in the bar, and dims rather than disappears on a slide with nothing
+ * behind it — a control that moves between slides is a control the presenter has to look
+ * for. Either register can fill a panel: written detail, measured detail, or both.
+ */
+const hasLearnMore = computed(() => !!prose.value || learnMore.facts.value.length > 0)
+
+// Closed by the slide changing, so the panel can never describe a slide that is no longer
+// on screen — which is also why the nav keys are ignored while it is open.
+watch(() => deck.slide.value.id, () => { showLearnMore.value = false })
 
 function onKeydown(e: KeyboardEvent) {
   // Never hijack keys while someone is typing in a slide's own input.
   const tag = (e.target as HTMLElement)?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return
   if (e.metaKey || e.ctrlKey || e.altKey) return
+
+  // The detail panel takes the keyboard while it is open: it belongs to one slide, so
+  // walking the deck underneath it would leave it describing something else.
+  if (showLearnMore.value) {
+    if (e.key === 'Escape' || e.key === 'i' || e.key === 'I') showLearnMore.value = false
+    else if (e.key !== 'Tab') e.preventDefault()
+    return
+  }
 
   switch (e.key) {
     case 'ArrowRight':
@@ -54,17 +84,14 @@ function onKeydown(e: KeyboardEvent) {
       e.preventDefault(); deck.goTo(0); break
     case 'End':
       e.preventDefault(); deck.goTo(deck.slides.length - 1); break
-    case 'l':
-    case 'L':
-      deck.learnMode.value = !deck.learnMode.value; break
-    case 'n':
-    case 'N':
-      showSpeakerNotes.value = !showSpeakerNotes.value; break
+    case 'i':
+    case 'I':
+      if (hasLearnMore.value) showLearnMore.value = true; break
     case '?':
       showHelp.value = !showHelp.value; break
     case 'Escape':
       showHelp.value = false
-      showSpeakerNotes.value = false
+      showLearnMore.value = false
       break
   }
 }
@@ -87,16 +114,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <h1>{{ deck.slide.value.title }}</h1>
       <span class="subtitle">{{ deck.slide.value.subtitle }}</span>
       <div class="top-actions">
-        <button v-if="deck.learnMode.value" class="mode" @click="deck.learnMode.value = false">learn mode</button>
+        <button
+          class="more-btn"
+          :class="{ empty: !hasLearnMore }"
+          :disabled="!hasLearnMore"
+          title="Detail for this slide (I)"
+          @click="showLearnMore = true"
+        >Learn more</button>
         <button class="help-btn" title="Keyboard shortcuts" @click="showHelp = !showHelp">?</button>
       </div>
     </header>
-
-    <!-- Always present, so the grid keeps four rows whether or not there is prose to show. -->
-    <div class="prose-band">
-      <p v-if="deck.learnMode.value && prose" class="prose learner">{{ prose.learner }}</p>
-      <p v-else-if="showSpeakerNotes && prose" class="prose speaker">{{ prose.speaker }}</p>
-    </div>
 
     <main class="slide-area">
       <component :is="deck.slide.value.component" :key="deck.slide.value.id" />
@@ -110,6 +137,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <!-- Shared zoom loupe: any canvas marked v-loupe drives it. -->
     <Loupe />
 
+    <LearnMore v-if="showLearnMore" @close="showLearnMore = false" />
+
     <div v-if="showHelp" class="help-overlay" @click="showHelp = false">
       <div class="help-content" @click.stop>
         <h2>Keyboard</h2>
@@ -118,8 +147,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <dt>← ↑</dt><dd>Back</dd>
           <dt>PgUp / PgDn</dt><dd>Skip a whole slide</dd>
           <dt>Home / End</dt><dd>First / last slide</dd>
-          <dt>L</dt><dd>Learn mode — reveal every build step, show the full explanation</dd>
-          <dt>N</dt><dd>Speaker note for this slide</dd>
+          <dt>I</dt><dd>Learn more — the detail behind this slide</dd>
           <dt>?</dt><dd>This help</dd>
           <dt>Esc</dt><dd>Close</dd>
         </dl>
@@ -166,26 +194,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .main {
   min-width: 0;
   display: grid;
-  grid-template-rows: var(--chrome-top) auto 1fr var(--chrome-row);
+  grid-template-rows: var(--chrome-top) 1fr var(--chrome-row);
   overflow: hidden;
-}
-
-/* Prose band under the title: the presenter's cue, or the paragraph that stands in
-   for the presenter once the deck is published. */
-.prose {
-  padding: 0.5rem 1.25rem 0.1rem;
-  font-size: 0.68rem;
-  line-height: 1.5;
-  max-width: 62rem;
-}
-
-.prose.learner {
-  color: var(--text-secondary);
-}
-
-.prose.speaker {
-  color: var(--warning);
-  font-style: italic;
 }
 
 /*
@@ -232,18 +242,26 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   text-overflow: ellipsis;
 }
 
-.mode {
-  font-size: 0.55rem;
-  padding: 0.15rem 0.4rem;
-  border-radius: 3px;
-  color: var(--accent);
-  border-color: var(--accent-dim);
-}
-
 .help-btn {
   font-size: 0.65rem;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
+}
+
+.more-btn {
+  font-size: 0.6rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 4px;
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+/* Present but plainly inert, so the bar's controls never move between slides. */
+.more-btn.empty {
+  color: var(--text-secondary);
+  border-color: var(--border);
+  opacity: 0.4;
+  cursor: default;
 }
 
 /*

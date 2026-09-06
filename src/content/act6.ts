@@ -2,7 +2,6 @@ import type { ProseRegistry } from './types'
 
 export const ACT6_PROSE: ProseRegistry = {
   'wider-audio': {
-    speaker: 'Same skeleton, different sense. MDCT plus a model of the listener.',
     learner:
       'MP3 and AAC are built the same way JPEG is: transform, quantise, entropy-code. The ' +
       'transform is the MDCT, which works on overlapping windows so the blocks do not click ' +
@@ -11,7 +10,6 @@ export const ACT6_PROSE: ProseRegistry = {
       'rest of the machinery is recognisably the same.',
   },
   'wider-general': {
-    speaker: 'No eyes or ears to exploit — so decorrelate, then entropy-code.',
     learner:
       'When the data is not for a human — source code, logs, JSON — nothing can be discarded, ' +
       'so lossless schemes work by making the data more predictable before coding it. LZ77 ' +
@@ -20,7 +18,6 @@ export const ACT6_PROSE: ProseRegistry = {
       'stage, same last stage.',
   },
   modern: {
-    speaker: 'Better prediction, better entropy coding. JPEG still wins on compatibility.',
     learner:
       'WebP, AVIF, HEIC and JPEG XL all beat JPEG, mostly by predicting each block from its ' +
       'neighbours before transforming, and by replacing fixed Huffman tables with adaptive ' +
@@ -29,7 +26,6 @@ export const ACT6_PROSE: ProseRegistry = {
       'twenty percent.',
   },
   'brittle-vs-robust': {
-    speaker: 'Same encoder, 10.6:1 and 0.50:1. Ask why before answering it.',
     learner:
       'Run-length encoding was spectacular on one image and worse than useless on another, ' +
       'while the transform pipeline behaves much the same on all of them. That difference is ' +
@@ -40,7 +36,6 @@ export const ACT6_PROSE: ProseRegistry = {
       'hoping its data has runs, it manufactures them.',
   },
   'lossiness-subjective': {
-    speaker: 'Lossy is a claim about people. Every codec contains a model of you.',
     learner:
       'There is nothing in the data that says which bits matter. Lossy compression works by ' +
       'discarding what a particular observer will not notice, which makes every lossy format a ' +
@@ -48,7 +43,6 @@ export const ACT6_PROSE: ProseRegistry = {
       'SSIM — are themselves models, and they disagree with each other and with actual viewers.',
   },
   reframing: {
-    speaker: 'Every win came from changing what the numbers mean. Not from cleverer bit-packing.',
     learner:
       'Look back at what actually produced the gains. Palettising turned colours into indices. ' +
       'Splitting planes changed only the order bytes were visited in. YCbCr separated brightness ' +
@@ -58,7 +52,6 @@ export const ACT6_PROSE: ProseRegistry = {
       'habit worth carrying well beyond compression.',
   },
   end: {
-    speaker: 'Links, the survey table, and questions.',
     learner:
       'The deck stays live: every control still works, and any slide can be linked to directly. ' +
       'The repository also contains a survey of twenty-two compression techniques and the ' +

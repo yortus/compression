@@ -192,13 +192,13 @@ const decorrelation = computed(() => {
 
 .view-toggle button {
   padding: 0.2rem 0.5rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   border-radius: 4px;
 }
 
 .hint {
   margin-left: 0.4rem;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-style: italic;
   color: var(--text-secondary);
 }
@@ -225,7 +225,7 @@ const decorrelation = computed(() => {
 }
 
 .sub {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-weight: 400;
   color: var(--text-secondary);
   letter-spacing: 0;
@@ -241,7 +241,7 @@ const decorrelation = computed(() => {
 
 /* Identical on every plane, which is the setup for the subsampling slide. */
 .size {
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -257,7 +257,7 @@ const decorrelation = computed(() => {
 }
 
 .k {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -266,7 +266,7 @@ const decorrelation = computed(() => {
 .pairs {
   display: flex;
   gap: 0.7rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }

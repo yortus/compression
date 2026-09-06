@@ -96,7 +96,9 @@ onMounted(draw)
 
         <Fragment :index="1">
           <p class="verdict">
-            <strong>{{ ratio.toFixed(0) }}× smaller</strong> — and that is the version on screen.
+            <strong :class="{ bad: ratio < 1 }">{{ ratio >= 1
+              ? `${ratio.toFixed(0)}× smaller`
+              : `${(1 / ratio).toFixed(1)}× bigger` }}</strong> — and that is the version on screen.
             Flip to the original and almost nothing changes; magnify, or drag the quality slider
             down, and you can find exactly what was thrown away. Multiply that by every image on
             every page you load today, then again, harder, for audio and video.
@@ -138,13 +140,13 @@ onMounted(draw)
 
 .view button {
   padding: 0.2rem 0.5rem;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   border-radius: 4px;
 }
 
 .hint {
   margin-left: 0.4rem;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-style: italic;
   color: var(--text-secondary);
   opacity: 0.7;
@@ -183,5 +185,10 @@ onMounted(draw)
   font-size: 0.7rem;
   line-height: 1.5;
   color: var(--text-secondary);
+}
+
+/* A quality setting that expands the image is a real outcome at the top of the slider. */
+.verdict strong.bad {
+  color: var(--negative);
 }
 </style>

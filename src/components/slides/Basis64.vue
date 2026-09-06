@@ -744,7 +744,7 @@ onMounted(() => {
   position: relative;
   padding-top: 0.42rem;
   text-align: center;
-  font-size: 0.56rem;
+  font-size: 0.62rem;
   letter-spacing: 0.04em;
   color: var(--text-secondary);
 }

@@ -19,6 +19,26 @@
  * for JPEG, which is true of the format but not of every block it is handed.
  */
 
+/**
+ * How a ratio is worded, so that every stamp in the deck words it the same way.
+ *
+ * "0.9× SMALLER" is not a small win, it is a loss — and "1.0× SMALLER" is not a win at all.
+ * Three slides wrote the ratio straight into a SMALLER stamp and would say both. A coder
+ * that expands its input is a result this deck goes out of its way to show (ASCII noise,
+ * the gradient, RGBA pixels), so the wording has to be able to say so.
+ *
+ * The three cases are read off the *displayed* number rather than the raw one: anything
+ * that would print as 1.0 reads SAME SIZE, because a stamp claiming a win of nothing is the
+ * bug this replaces. `better` is false for both the flat and the worse case — the caller
+ * maps it onto its own palette, positive against warning.
+ */
+export function ratioVerdict(ratio: number): { text: string; better: boolean } {
+  const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1
+  if (r.toFixed(1) === '1.0') return { text: 'SAME SIZE', better: false }
+  if (r > 1) return { text: `${r.toFixed(1)}× SMALLER`, better: true }
+  return { text: `${(1 / r).toFixed(1)}× BIGGER`, better: false }
+}
+
 /** Every stamp in the deck leans the same way, or they read as a mistake rather than a set. */
 const ANGLE = -7 * (Math.PI / 180)
 
