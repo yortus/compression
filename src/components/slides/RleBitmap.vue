@@ -289,9 +289,15 @@ function buildModel(): Model | null {
   }
 }
 
+/**
+ * Stream *and* primer. The palette row cannot be decoded without the palette, which is
+ * drawn in the band at the bottom and counted here — otherwise the one representation
+ * that carries a primer would win partly by not paying for it.
+ */
 const ratio = computed(() => {
   const m = model.value
-  return m && m.encodedBits > 0 ? m.rawBits / m.encodedBits : 1
+  const total = m ? m.encodedBits + m.overheadBits : 0
+  return m && total > 0 ? m.rawBits / total : 1
 })
 
 useStat('rle-bitmap', () => {

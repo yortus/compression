@@ -19,7 +19,7 @@ import { compareImages } from '../../engine/compare'
  * raw figure, so the finale's total is the number the audience has been watching all
  * along rather than a fresh one.
  *
- * The Act 1 scoreboard is picked up where it exists: whatever the simple techniques
+ * The Codes-act scoreboard is picked up where it exists: whatever the simple techniques
  * actually managed on this image, as measured when those slides were on screen.
  */
 
@@ -171,7 +171,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
               quantisation manufactured. <em>No single stage here is the compressor.</em>
             </p>
             <div v-if="anyEarlier" class="earlier">
-              <span class="earlier-head">On this same image, from Act 1:</span>
+              <span class="earlier-head">On this same image, from earlier acts:</span>
               <span v-for="e in earlier" :key="e.id" class="earlier-row">
                 {{ e.label }}
                 <strong v-if="e.ratio !== null" :class="{ bad: e.ratio < 1 }">{{ e.ratio.toFixed(2) }}:1</strong>
@@ -179,7 +179,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
               </span>
             </div>
             <p v-else class="earlier-hint">
-              Walk back through Act 1 and the simple techniques' scores on this image appear here for
+              Walk back through the earlier acts and those techniques' scores on this image appear here for
               comparison.
             </p>
           </div>

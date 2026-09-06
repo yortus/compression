@@ -6,7 +6,7 @@
  * happens. English is mostly the same few hundred words, so the interesting symbol is a
  * word; written Chinese is mostly the same few hundred characters, so it is a character;
  * random bytes have no repeated anything and no choice of alphabet rescues them. The
- * Act 3 slide swaps between texts precisely to make that choice visible.
+ * Codes-act slide swaps between texts precisely to make that choice visible.
  *
  * Everything here works in grapheme clusters rather than code points, because a cell in
  * a fixed-width grid holds one *visible* character: a Devanagari consonant plus its vowel

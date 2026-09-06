@@ -4,6 +4,7 @@ import SlideLayout from '../../deck/SlideLayout.vue'
 import ExpandablePanel from '../ExpandablePanel.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { useStat } from '../../stats/useStats'
+import { formatBytes } from '../../stats/types'
 import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
 import { compareImages } from '../../engine/compare'
 
@@ -15,6 +16,8 @@ const viewMode = ref<ViewMode>('side-by-side')
 const origCanvas = ref<HTMLCanvasElement>()
 const reconCanvas = ref<HTMLCanvasElement>()
 const diffCanvas = ref<HTMLCanvasElement>()
+
+const kb = (bytes: number) => formatBytes(bytes * 8)
 
 const compressionRatio = computed(() => {
   const src = pipeline.sourceImageData.value
@@ -138,6 +141,20 @@ onMounted(drawAll)
         </div>
       </div>
 
+      <!-- The finale's one number. It used to live in the shell's stats strip; the slide
+           computes it either way, and this is where the audience is already looking. -->
+      <div v-if="compressionRatio" class="result">
+        <span class="ratio">{{ compressionRatio.ratio }}:1</span>
+        <span class="sizes">
+          {{ kb(compressionRatio.rawBytes) }} → {{ kb(compressionRatio.estimatedBytes) }}
+          <span class="saved">−{{ compressionRatio.percent }}%</span>
+        </span>
+        <span class="verdict" :class="diff?.identical ? 'lossless' : 'lossy'">
+          {{ diff?.identical
+            ? 'bit-identical'
+            : `max error ${diff?.maxChannelError ?? 0}/255` }}
+        </span>
+      </div>
     </div>
 
     <template #notes>
@@ -219,31 +236,48 @@ onMounted(drawAll)
   border-radius: 4px;
 }
 
-.stats {
+/* One row, read from the back of the room: the ratio big, the arithmetic behind it
+   next to it, and the measured verdict last. */
+.result {
   display: flex;
-  gap: 2rem;
+  align-items: baseline;
+  gap: 1.4rem;
   flex-shrink: 0;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.stat .label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.stat .value {
-  font-size: 1rem;
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.stat .value.accent {
+.result .ratio {
+  font-size: 1.6rem;
+  font-weight: 700;
   color: var(--positive);
+}
+
+.result .sizes {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.result .saved {
+  color: var(--text-secondary);
+}
+
+.result .verdict {
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.result .verdict.lossy {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.result .verdict.lossless {
+  color: var(--positive);
+  border-color: var(--positive);
 }
 
 </style>

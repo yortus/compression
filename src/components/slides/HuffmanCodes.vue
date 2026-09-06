@@ -33,10 +33,11 @@ import {
  * property of the data, not of the coder.
  *
  * **The numbers are measured, never asserted.** The ratio in the badge is
- * `utf8Bytes(message) * 8 / payloadBits`, and the LOSSLESS badge on the decoded panel is
- * a real `decodeBits` walk compared against the original, not a constant — if the coder
- * ever broke it would read LOSSY. The code table is not waved away either, but it is
- * priced in the HUD rather than on the stage: see `drawCentre`.
+ * `utf8Bytes(message) * 8 / (payloadBits + tableBits)` — the table is part of what has to
+ * be sent, so it is part of the ratio — and the LOSSLESS badge on the decoded panel is a
+ * real `decodeBits` walk compared against the original, not a constant: if the coder ever
+ * broke it would read LOSSY. What the table costs is written under the badge, because a
+ * ratio that quietly excluded it would be the one dishonest number in the deck.
  *
  * **One 2D canvas, GSAP tweening plain objects the draw loop reads.** Same model as
  * `basis-64`, for the same reasons: several hundred moving labels are nothing for canvas
@@ -86,8 +87,9 @@ const RIBBON_Y = CENTRE_Y + 16
 const RIBBON_W = CENTRE_W - 32
 const RIBBON_H = 340
 const RIBBON_FONT = 24
-/** The ratio stamp sits alone under the ribbon — the arithmetic is in the HUD. */
-const BADGE_Y = CENTRE_Y + CENTRE_H - 62
+/** The ratio stamp, with the code table's cost on one line beneath it. */
+const BADGE_Y = CENTRE_Y + CENTRE_H - 82
+const TABLE_COST_Y = CENTRE_Y + CENTRE_H - 26
 
 const TABLE_X = MARGIN
 const TABLE_Y = GRID_Y + PANEL + 24
@@ -414,9 +416,15 @@ useStat('huffman-codes', () => {
   }
 })
 
+/**
+ * Payload *and* table. A Huffman code is useless without the codebook, and the deck's
+ * whole argument about primers is that they travel with the data; a headline ratio that
+ * counted only the bitstream would flatter every text on the picker by the same trick.
+ */
 const ratio = computed(() => {
   const m = model.value
-  return m && m.payloadBits > 0 ? m.rawBits / m.payloadBits : 1
+  const total = m ? m.payloadBits + m.tableBits : 0
+  return m && total > 0 ? m.rawBits / total : 1
 })
 // --- Animation ------------------------------------------------------------------
 
@@ -689,9 +697,8 @@ function drawRibbon(ctx: CanvasRenderingContext2D) {
  *
  * The badge used to arrive with a raw-versus-encoded bar pair and a line about amortising
  * the code table. All of it was true and none of it was readable at the back of a room,
- * and it argued with the headline rather than supporting it. The primer is still counted
- * — the HUD carries `overheadBits` as its own slice on every slide — so the pane can say
- * the one thing it is for.
+ * and it argued with the headline rather than supporting it. What survives of that is one
+ * line of it: the table is inside the ratio, and its cost is stated underneath in bytes.
  */
 function drawCentre(ctx: CanvasRenderingContext2D) {
   panel(ctx, CENTRE_X, CENTRE_Y, CENTRE_W, CENTRE_H)
@@ -701,6 +708,16 @@ function drawCentre(ctx: CanvasRenderingContext2D) {
   const shown = 1 + (ratio.value - 1) * anim.badge
   drawStamp(ctx, `${shown.toFixed(1)}× SMALLER`, CENTRE_X + CENTRE_W / 2, BADGE_Y,
     colours.good, { alpha: anim.badge })
+
+  const m = model.value!
+  ctx.globalAlpha = anim.badge
+  ctx.fillStyle = colours.warn
+  ctx.font = uiFont(24)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(`including ${Math.ceil(m.tableBits / 8).toLocaleString()} bytes of code table`,
+    CENTRE_X + CENTRE_W / 2, TABLE_COST_Y)
+  ctx.globalAlpha = 1
 }
 
 /**

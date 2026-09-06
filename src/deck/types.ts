@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 
-export type ActId = 'framing' | 'simple' | 'colour' | 'codes' | 'fourier' | 'jpeg' | 'conclusions'
+export type ActId = 'framing' | 'codes' | 'colour' | 'fourier' | 'jpeg' | 'conclusions'
 
 export interface Act {
   id: ActId

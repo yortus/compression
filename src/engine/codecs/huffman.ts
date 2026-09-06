@@ -2,7 +2,7 @@
  * Huffman coding over an arbitrary symbol type.
  *
  * `engine/jpeg/huffman.ts` codes packed (runLength, value) integers and nothing else.
- * The Act 3 slides want to build a tree over whatever the audience types, so this is
+ * The Codes-act slides want to build a tree over whatever the audience types, so this is
  * the same algorithm with the JPEG assumptions taken out.
  *
  * Two things here exist purely for the slide rather than for the codec:

@@ -64,12 +64,4 @@ export const ACT0_PROSE: ProseRegistry = {
       'format is a position on that triangle, and formats age mostly by moving along it as ' +
       'hardware makes different corners cheap.',
   },
-  source: {
-    speaker: 'One image, carried through the whole talk. Change it whenever you like.',
-    learner:
-      'This is the image the rest of the deck works on. Every slide from here reads from ' +
-      'whichever picture is selected in the bar at the bottom, so you can swap between a ' +
-      'photograph, a flat graphic and a smooth gradient at any point and watch the same ' +
-      'technique behave completely differently on each.',
-  },
 }

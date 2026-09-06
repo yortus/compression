@@ -1,6 +1,5 @@
 import type { Act, SlideDef } from './types'
 
-import Step0Source from '../components/steps/Step0Source.vue'
 import Step3Blocks from '../components/steps/Step3Blocks.vue'
 import Step4DCT from '../components/steps/Step4DCT.vue'
 import Step5Quantization from '../components/steps/Step5Quantization.vue'
@@ -9,8 +8,6 @@ import Step7RLE from '../components/steps/Step7RLE.vue'
 import Step9Summary from '../components/steps/Step9Summary.vue'
 
 import RleBitmap from '../components/slides/RleBitmap.vue'
-import RlePrimer from '../components/slides/RlePrimer.vue'
-import LossyVsLossless from '../components/slides/LossyVsLossless.vue'
 
 import ColourPlanes from '../components/slides/ColourPlanes.vue'
 import YcbcrPlanes from '../components/slides/YcbcrPlanes.vue'
@@ -36,9 +33,8 @@ import PointsSlide from '../components/slides/PointsSlide.vue'
 
 export const ACTS: Act[] = [
   { id: 'framing', label: 'Framing', title: 'Why compress anything?' },
-  { id: 'simple', label: 'Simple', title: 'The simplest idea, and where it breaks' },
-  { id: 'colour', label: 'Colour', title: 'Reframing colour' },
   { id: 'codes', label: 'Codes', title: 'Finding the redundancy' },
+  { id: 'colour', label: 'Colour', title: 'Reframing colour' },
   { id: 'fourier', label: 'Waves', title: "Fourier's insight" },
   { id: 'jpeg', label: 'JPEG', title: 'Putting it all together' },
   { id: 'conclusions', label: 'Wider', title: 'Looking wider' },
@@ -71,15 +67,6 @@ export const SLIDES: SlideDef[] = [
     fragments: 2,
   },
   {
-    id: 'summarising',
-    act: 'framing',
-    title: 'You Already Do This',
-    subtitle: 'Summaries, shorthand, and the line between them',
-    component: Summarising,
-    tag: 'core',
-    fragments: 5,
-  },
-  {
     id: 'info-theory',
     act: 'framing',
     title: 'The Floor',
@@ -107,17 +94,17 @@ export const SLIDES: SlideDef[] = [
     fragments: 2,
   },
   {
-    id: 'source',
-    act: 'framing',
-    title: 'Source Image',
-    subtitle: 'The starting point',
-    component: Step0Source,
-    tag: 'optional',
-    controls: ['image'],
+    id: 'summarising',
+    act: 'codes',
+    title: 'Familiar Codes',
+    subtitle: 'Summaries, shorthand, and the line between them',
+    component: Summarising,
+    tag: 'core',
+    fragments: 5,
   },
   {
     id: 'rle-bitmap',
-    act: 'simple',
+    act: 'codes',
     title: 'Run-Length Encoding',
     subtitle: 'The same encoder, four ways of saying what a pixel is',
     component: RleBitmap,
@@ -127,22 +114,24 @@ export const SLIDES: SlideDef[] = [
     fragments: 4,
   },
   {
-    id: 'rle-primer',
-    act: 'simple',
-    title: 'The Shared Primer',
-    subtitle: 'What both sides must already agree on',
-    component: RlePrimer,
-    tag: 'optional',
-    fragments: 2,
+    id: 'huffman-codes',
+    act: 'codes',
+    title: 'Huffman Codes',
+    subtitle: 'Short codes for common things, long codes for rare ones',
+    component: HuffmanCodes,
+    tag: 'core',
+    // One fragment per phase of the round trip, so the arrow keys drive the animation
+    // like the build on any other slide.
+    fragments: 6,
   },
   {
-    id: 'lossy-vs-lossless',
-    act: 'simple',
-    title: 'Lossy and Lossless',
-    subtitle: 'Where the information goes',
-    component: LossyVsLossless,
+    id: 'lz77',
+    act: 'codes',
+    title: 'LZ77',
+    subtitle: 'The sliding window — redundancy you have already seen, and half of gzip',
+    component: Lz77,
     tag: 'core',
-    fragments: 2,
+    fragments: 5,
   },
   {
     id: 'rgb-planes',
@@ -173,26 +162,6 @@ export const SLIDES: SlideDef[] = [
     tag: 'core',
     controls: ['image', 'subsampling'],
     fragments: 2,
-  },
-  {
-    id: 'huffman-codes',
-    act: 'codes',
-    title: 'Huffman Coding',
-    subtitle: 'Short codes for common things, long codes for rare ones',
-    component: HuffmanCodes,
-    tag: 'core',
-    // One fragment per phase of the round trip, so the arrow keys drive the animation
-    // like the build on any other slide.
-    fragments: 6,
-  },
-  {
-    id: 'lz77',
-    act: 'codes',
-    title: 'The Sliding Window',
-    subtitle: 'Redundancy you have already seen, and half of gzip',
-    component: Lz77,
-    tag: 'core',
-    fragments: 5,
   },
   {
     id: 'waves-intro',

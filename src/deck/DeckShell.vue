@@ -2,16 +2,23 @@
 import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
 import { createDeck, DECK_KEY } from './useDeck'
 import { createStats, STATS_KEY } from '../stats/useStats'
-import StatsHUD from '../stats/StatsHUD.vue'
 import ControlBar from './ControlBar.vue'
 import DeckNav from './DeckNav.vue'
 import Loupe from './Loupe.vue'
 import { proseFor } from '../content'
 
 /**
- * The one shell every slide lives in. It owns all the furniture — title, navigation,
- * global controls and the compression stats — so that nothing moves between slides
- * and every control is reachable from everywhere.
+ * The one shell every slide lives in. It owns all the furniture — title, navigation
+ * and global controls — so that nothing moves between slides and every control is
+ * reachable from everywhere.
+ *
+ * The top bar carries the slide's own title and nothing else. The act is already named
+ * in the ToC rail, so repeating it above every slide was chrome spent on something the
+ * audience can see; the compression numbers that used to sit on the right went with it,
+ * because a slide that has a number worth reading should show it where the number is
+ * being made, not in a strip above the picture. Slides still publish through
+ * `useStat` — the scoreboard `jpeg-pipeline` reads back is fed by that, not by
+ * anything rendered here.
  */
 const deck = createDeck()
 provide(DECK_KEY, deck)
@@ -77,11 +84,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
     <div class="main">
     <header class="chrome-top">
-      <span class="act">{{ deck.act.value.title }}</span>
       <h1>{{ deck.slide.value.title }}</h1>
       <span class="subtitle">{{ deck.slide.value.subtitle }}</span>
-      <!-- Stats live up here beside the title: always visible, and no extra chrome height. -->
-      <StatsHUD />
       <div class="top-actions">
         <button v-if="deck.learnMode.value" class="mode" @click="deck.learnMode.value = false">learn mode</button>
         <button class="help-btn" title="Keyboard shortcuts" @click="showHelp = !showHelp">?</button>
@@ -130,7 +134,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
  * that is left; a slide that wants more should dim the chrome, not remove it.
  */
 .deck-shell {
-  --chrome-top: 2.4rem;
+  --chrome-top: 2.6rem;
   --chrome-row: 1.9rem;
   --rail: 8.5rem;
   width: 100%;
@@ -148,7 +152,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 @media (max-width: 1500px) {
   .deck-shell {
     --rail: 6.6rem;
-    --chrome-top: 2.2rem;
+    --chrome-top: 2.4rem;
   }
 }
 
@@ -186,15 +190,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 /*
  * Explicit columns rather than a flex row. Under a flex row a shrinkable item can be
- * squeezed narrower than its own text, and the text then spills over its neighbour —
- * which is how the stats ended up sitting on top of the subtitle. In a grid each item
- * owns a column, so the worst case is truncation, never overlap.
+ * squeezed narrower than its own text, and the text then spills over its neighbour. In a
+ * grid each item owns a column, so the worst case is truncation, never overlap.
  *
- * act | title | subtitle (absorbs all slack) | stats | buttons
+ * title | subtitle (absorbs all slack) | buttons
  */
 .chrome-top {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) max-content max-content;
+  grid-template-columns: auto minmax(0, 1fr) max-content;
   align-items: center;
   gap: 0.75rem;
   padding: 0 1rem;
@@ -209,25 +212,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   gap: 0.4rem;
 }
 
-.act {
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-  white-space: nowrap;
-}
-
 .chrome-top h1 {
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
-/* The subtitle owns the flexible column, so it is the only thing that truncates. */
+/*
+ * The subtitle is the expanded form of the title, and it owns the flexible column, so it
+ * is the only thing in the bar that ever truncates.
+ */
 .subtitle {
   min-width: 0;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -311,32 +309,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   margin: 0;
   color: var(--text-secondary);
 }
-/*
- * Below these widths there is genuinely not room for everything, so drop content in
- * order of importance rather than letting it truncate to meaningless fragments. The
- * compression numbers are the last thing to go — they are the point of the deck.
- */
-@media (max-width: 1400px) {
-  .subtitle {
-    display: none;
-  }
-
-  /* The act name is the cheapest thing to drop — the ToC rail already shows which
-     act is current, and it is by far the widest item in the bar. */
-  .act {
-    display: none;
-  }
-}
 
 /* Narrower than the deck was designed for: scale the bar's type down rather than
-   start dropping the numbers or the help button off the end. */
+   start dropping the subtitle or the help button off the end. */
 @media (max-width: 1150px) {
   .chrome-top h1 {
-    font-size: 0.9rem;
+    font-size: 1.05rem;
   }
 
-  .chrome-top :deep(.stats-hud) {
-    font-size: 0.58rem;
+  .subtitle {
+    font-size: 0.68rem;
   }
 }
 </style>

@@ -1,5 +1,5 @@
 /**
- * Windows BMP, enough of it to price the Act 1 slides honestly.
+ * Windows BMP, enough of it to price the run-length slide honestly.
  *
  * The act is built around this format because BMP settles the argument by itself: it has
  * an uncompressed mode, a palettised mode, and a run-length mode — and the run-length
@@ -10,8 +10,8 @@
  * Everything here is real: the 54-byte header, four bytes per palette entry, rows padded
  * to a four-byte boundary, and `BI_RLE8` exactly as the format specifies — runs as (count, index)
  * pairs, with a count of zero escaping to end-of-line, end-of-bitmap, a delta, or a block
- * of literal pixels padded to a word. That escape convention is the shared primer from
- * `rle-primer`, shipped in a format everyone has opened by accident.
+ * of literal pixels padded to a word. That escape convention is the shared primer both
+ * sides must agree on in advance, shipped in a format everyone has opened by accident.
  *
  * Not implemented: writing an actual file. Rows are handled top-down here, where a real
  * BMP stores them bottom-up; that changes nothing about any size this module reports.

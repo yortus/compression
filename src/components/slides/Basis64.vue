@@ -454,11 +454,25 @@ function draw(ctx: CanvasRenderingContext2D, scale: number) {
   ctx.strokeRect(SRC_X + 0.5, CY - STATION / 2 + 0.5, STATION - 1, STATION - 1)
   ctx.strokeRect(RECON_X + 0.5, CY - STATION / 2 + 0.5, STATION - 1, STATION - 1)
 
-  // No text on the stage at all. Everything that used to be written here is either
-  // obvious from the picture (three panels, two arrows) or reported by the always-on
-  // stats HUD, which already carries the kept count and the maximum pixel error.
   arrow(ctx, SRC_X + STATION + 8, GRID_X - 8, CY)
   arrow(ctx, GRID_X + GRID_SPAN + 8, RECON_X - 8, CY)
+
+  // The one number the middle of the stage is about: how many of the 64 patterns were
+  // still worth sending. It is what the thinning-out phase does, and the picture cannot
+  // say it — counting greyed tiles from the back of a room is not a readout. Fades in
+  // with quantisation, so it arrives with the thing it is describing.
+  let quantised = 1
+  for (const s of sprites) quantised = Math.min(quantised, s.quantMix)
+  if (quantised > 0.01) {
+    ctx.globalAlpha = quantised
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.font = '600 34px Inter, system-ui, sans-serif'
+    ctx.fillStyle = colours.accent
+    ctx.fillText(`${keptCount.value} of 64 patterns kept`,
+      GRID_X + GRID_SPAN / 2, GRID_Y + GRID_SPAN + 36)
+    ctx.globalAlpha = 1
+  }
 
   // The one label the stage keeps, on the panel making the claim. Driven by the measured
   // pixel diff, so a block that happens to survive quantisation intact reads LOSSLESS —

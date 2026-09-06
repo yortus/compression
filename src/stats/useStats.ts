@@ -1,4 +1,4 @@
-import { ref, computed, inject, onScopeDispose, type InjectionKey, type ComputedRef } from 'vue'
+import { ref, computed, inject, watchEffect, onScopeDispose, type InjectionKey, type ComputedRef } from 'vue'
 import { derive, type StatSample, type StatDerived } from './types'
 
 type StatSource = () => StatSample | null
@@ -44,21 +44,30 @@ export function createStats() {
     }
   }
 
-  return { current, scoreboard, register }
+  return { current, scoreboard, register, record }
 }
 
 export type Stats = ReturnType<typeof createStats>
 export const STATS_KEY = Symbol.for('compression.stats') as InjectionKey<Stats>
 
 /**
- * Publish this slide's compression stats to the always-on HUD.
- * Call from a slide's `setup`; unregisters itself when the slide unmounts.
+ * Publish this slide's compression stats.
+ *
+ * Nothing in the shell renders them any more — the top bar is the slide's title and
+ * nothing else — so a slide that wants its numbers on screen draws them itself, and this
+ * exists for the scoreboard `jpeg-pipeline` stacks up at the end. Recording used to be a
+ * side effect of the HUD reading `current`; with no reader, each publisher records for
+ * itself. Call from a slide's `setup`; unregisters itself when the slide unmounts.
  */
 export function useStat(id: string, source: StatSource): ComputedRef<StatDerived | null> {
   const stats = inject(STATS_KEY)
   if (!stats) throw new Error('useStat() called outside a deck with createStats() provided')
   const unregister = stats.register(id, source)
   onScopeDispose(unregister)
+  watchEffect(() => {
+    const sample = source()
+    if (sample) stats.record(id, sample)
+  })
   return computed(() => {
     const sample = source()
     return sample ? derive(sample) : null

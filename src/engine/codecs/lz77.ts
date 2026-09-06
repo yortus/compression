@@ -7,7 +7,7 @@
  * repeated, as a back-reference saying *go back d symbols and copy l of them*.
  *
  * It is also half of gzip. DEFLATE is this, followed by Huffman over the token stream, and
- * the Act 3 slide runs exactly that pairing using `codecs/huffman.ts` unchanged.
+ * the Codes-act slide runs exactly that pairing using `codecs/huffman.ts` unchanged.
  *
  * Two deliberate simplifications, both stated on the slide:
  *

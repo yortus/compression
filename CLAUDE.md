@@ -54,10 +54,10 @@ holds the inputs (`sourceImageData`, `quality`, `subsamplingMode`, `selectedBloc
 There is no other state store.
 
 **`src/deck/` — the deck framework.** `slides.ts` is the single source of deck order: an array of
-`{ id, act, title, component, tag, controls, fragments }`, 33 slides across 7 acts. `useDeck.ts`
+`{ id, act, title, component, tag, controls, fragments }`, 30 slides across 6 acts. `useDeck.ts`
 owns the current slide and fragment and syncs them to the URL hash (`#/zigzag`, `#/zigzag/1`);
-`DeckShell.vue` renders all the persistent chrome (ToC rail, title bar, stats HUD, control bar,
-loupe) and binds the keys. Slide components live in `src/components/slides/`; the older
+`DeckShell.vue` renders all the persistent chrome (ToC rail, title bar, control bar, loupe) and
+binds the keys. The title bar is the slide's title and subtitle only — no act name, no numbers. Slide components live in `src/components/slides/`; the older
 `src/components/steps/StepN*.vue` are the original JPEG walkthrough, still in use and reached
 through the same registry.
 
@@ -65,10 +65,12 @@ through the same registry.
 stage machine every exploration slide runs on; `textGrid`, `ribbon`, `stamp`, `tokenColours` and
 `shade` are the pieces they draw with. See "The exploration-slide pattern" below.
 
-**`src/stats/` — the always-on ratio.** A slide calls `useStat(id, () => StatSample)` in setup and
-its numbers appear in the HUD; `StatSample` keeps `overheadBits` separate from `encodedBits` so the
-shared-primer cost is visible. The registry also keeps a per-slide scoreboard, which `jpeg-pipeline`
-reads back.
+**`src/stats/` — the measured ratio.** A slide calls `useStat(id, () => StatSample)` in setup;
+`StatSample` keeps `overheadBits` separate from `encodedBits` so the shared-primer cost is visible.
+Nothing in the shell renders it any more — a slide that wants its numbers on screen draws them
+itself, in the panel or stamp where they are made — so what `useStat` now feeds is the per-slide
+scoreboard `jpeg-pipeline` reads back. `StatsHUD.vue` is the old always-on readout, kept but no
+longer mounted anywhere.
 
 **`src/content/` — the words.** Per-slide prose in two registers (`speaker`, `learner`), keyed by
 slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
@@ -91,7 +93,7 @@ slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
 - **Huffman is per-block and illustrative.** `encodeBlock` builds a fresh tree from one block's RLE
   pairs. There is no real bitstream, no DC differential coding, and no standard entropy tables —
   that's deliberate; it demos the idea in numbers the audience can follow. `engine/codecs/huffman.ts`
-  is the general version, over an arbitrary symbol type, used by the Act 3 `huffman-codes` slide
+  is the general version, over an arbitrary symbol type, used by the Codes act's `huffman-codes` slide
   over whole words and characters of real text.
 - **`estimateEncodedBits` is the one whole-image size figure**, shared by `why-care`, `jpeg-result`,
   `jpeg-pipeline` and the benchmark so they cannot disagree. It samples blocks via
@@ -99,7 +101,7 @@ slide id. Learn mode (`L`) reveals every fragment and shows the learner text.
   wide, so a channel is exactly 64 blocks across and a stride of `n / 64` silently measures one
   column of the image. That bug made line art report the same ratio at every quality setting.
 - **`engine/formats/bmp.ts` is real BMP arithmetic** — the 54-byte header, four bytes per palette
-  entry, rows padded to a four-byte boundary, `BI_RLE8` encoded and decoded per spec. Act 1 used to
+  entry, rows padded to a four-byte boundary, `BI_RLE8` encoded and decoded per spec. The Codes act used to
   be built on it and no longer is: `rle-bitmap` demonstrates run-length encoding in the abstract on
   its own 16×16 pixel art, because 256 bytes fit on screen in full and a photograph's 786,432 do
   not. The module and its tests stay, and the fact that BMP ships `BI_RLE8` and `BI_RLE4` and no
