@@ -5,8 +5,7 @@ import Step9Summary from '../components/steps/Step9Summary.vue'
 
 import RleBitmap from '../components/slides/RleBitmap.vue'
 
-import ColourPlanes from '../components/slides/ColourPlanes.vue'
-import YcbcrPlanes from '../components/slides/YcbcrPlanes.vue'
+import RgbSubsample from '../components/slides/RgbSubsample.vue'
 import ChromaSubsample from '../components/slides/ChromaSubsample.vue'
 
 import TitleSlide from '../components/slides/TitleSlide.vue'
@@ -129,29 +128,18 @@ export const SLIDES: SlideDef[] = [
     fragments: 4,
   },
   {
-    id: 'rgb-planes',
+    id: 'rgb-subsample',
     act: 'colour',
-    title: 'Colour Planes',
-    subtitle: 'Same bytes, a different order',
-    component: ColourPlanes,
+    title: 'Throwing Colour Away I',
+    subtitle: 'Three sliders, and every plane still holds the picture',
+    component: RgbSubsample,
     tag: 'core',
     controls: ['image'],
-    fragments: 2,
-  },
-  {
-    id: 'ycbcr',
-    act: 'colour',
-    title: 'Better Axes',
-    subtitle: 'RGB → YCbCr, and the redundancy falls out',
-    component: YcbcrPlanes,
-    tag: 'core',
-    controls: ['image'],
-    fragments: 2,
   },
   {
     id: 'chroma-subsample',
     act: 'colour',
-    title: 'Throwing Colour Away',
+    title: 'Throwing Colour Away II',
     subtitle: 'Shrink the two planes you were not reading',
     component: ChromaSubsample,
     tag: 'core',

@@ -1,53 +1,62 @@
 import type { ProseRegistry } from './types'
 
 /**
- * Act 2 — colour, as one continuous argument in three moves.
+ * Act 2 — colour, as one argument in two moves.
  *
- * The act is deliberately built as the same picture three times, in the same layout, so
- * the only thing that visibly changes between slides is what the three planes contain:
+ * Both slides are the same picture in the same layout — three planes on the left, the
+ * reconstruction on the right, per-plane resolution sliders — so the only thing that
+ * changes between them is what the planes mean:
  *
- *   1. `rgb-planes`   — pull the image apart. Free, and it already helps. But all three
- *                       planes are the same picture, and that redundancy is untouched.
- *   2. `ycbcr`        — rotate the axes. Still three full-size planes, still nothing
- *                       saved, but the redundancy is gone and only one plane now looks
- *                       like the photograph.
- *   3. `chroma-subsample` — cash that in: shrink the two nobody was reading.
+ *   1. `rgb-subsample` — try the obvious thing in red, green and blue. Every plane carries
+ *                        brightness, so dropping any of them dents the picture; blue is the
+ *                        only one the eye lets you spend, and only a little.
+ *   2. `chroma-subsample` — change the axes first, to brightness plus colour, and now two
+ *                        of the three planes are pure tint and shrink almost for free.
  *
- * Correlation is the thread through the first two, and it is measured on both rather
- * than asserted — which matters, because how far it falls turns out to depend heavily on
- * the picture (0.96 to 0.60 on Forest; barely anything on a saturated close-up). The
- * durable claim, and the one the third slide actually rests on, is concentration: Y ends
- * up holding the picture on every image, whatever the correlation does.
+ * The thread through both is human perception rather than the data: the retina reads
+ * luminance detail far more sharply than colour detail, and reads blue least of all. The
+ * first slide runs into that wall; the second is built to exploit it.
  */
 export const ACT2_PROSE: ProseRegistry = {
-  'rgb-planes': {
+  'rgb-subsample': {
     learner:
-      'Start by pulling the image apart. Instead of storing red, green and blue interleaved as ' +
-      'triples, visit all the red bytes, then all the green, then all the blue. Nothing is ' +
-      'discarded — it is the same bytes in a different order — and yet it compresses better, ' +
-      'because within a plane a smooth region really does repeat. That is the whole thesis of ' +
-      'this talk in one slide. But now look at the three pictures rather than the numbers: to some ' +
-      'degree they are all the same photograph — bright where it is bright, dark where it is ' +
-      'dark. That resemblance is duplication, and a run-length coder cannot touch it, because it ' +
-      'is a relationship between the planes rather than along any one of them. How much of it ' +
-      'there is depends heavily on the picture: a forest scene measures 0.96 out of 1, while a ' +
-      'saturated close-up — where the reds genuinely are not the blues — can be as low as 0.3. ' +
-      'The slide reads the number off whatever image is loaded rather than promising you one.',
-  },
-  'ycbcr': {
-    learner:
-      'The fix is to change what the three planes mean. Y is a weighted average of the three ' +
-      'colours — brightness. Cb and Cr are what is left: how much bluer and how much redder this ' +
-      'pixel is than that average. It is a rotation of the colour axes, it is exactly ' +
-      'invertible, and by itself it saves nothing whatsoever — three planes in, three planes of ' +
-      'the same size out. There are two things it buys, and they are not equally ' +
-      'reliable. The planes become less alike — how much less depends on the image, and the slide ' +
-      'measures it both ways so you can see. The one that always happens, and the one the next ' +
-      'slide depends on, is that the picture ends up concentrated in Y. Note the chroma planes are drawn in the ' +
-      'colours they actually encode, not in grey. Rendered grey they look like two noisy copies ' +
-      'of the photo and teach you nothing; rendered honestly, Cb is a yellow-to-blue map and Cr a ' +
-      'cyan-to-red one. And then the observation the next slide needs: Y is the photograph, and ' +
-      'the other two are vague washes — yet all three hold exactly the same number of bytes.',
+      'The obvious way to spend fewer bytes on colour is to store the colour planes at lower ' +
+      'resolution. So here are red, green and blue, each on its own slider — drag one down and ' +
+      'its plane is averaged into coarser and coarser blocks, then stretched back to full size ' +
+      'for the reconstruction. The trouble shows up straight away: every one of these planes is ' +
+      'partly brightness, so drop red or green far and the picture itself goes blocky, not just ' +
+      'its colour. Blue is the exception you can lean on a little — the eye holds very few ' +
+      'blue-reading cones, so it resolves blue detail poorly and a coarse blue plane is hard to ' +
+      'catch. But there is no plane here you can throw away cheaply, because brightness and ' +
+      'colour are tangled together in all three. That tangle is what the next slide unpicks.',
+    more: {
+      title: 'Why green matters most and blue least',
+      blocks: [
+        {
+          kind: 'para',
+          text:
+            'The eye judges brightness far more finely than colour, and the three primaries do ' +
+            'not carry brightness equally. Green carries most of it, red a good deal less, and ' +
+            'blue least of all — the standard luma weights put it at roughly 59% green, 30% red ' +
+            'and 11% blue, and those are the very numbers the brightness transform two slides ' +
+            'later is built from. So coarsening the green plane dulls the picture fastest, and ' +
+            'coarsening blue is the least visible. Note this is about sensitivity, not cone ' +
+            'counts: the retina actually holds more red-sensitive cones than green, but the two ' +
+            'together form a brightness response that peaks in the green, which is what the eye ' +
+            'resolves most sharply.',
+        },
+        {
+          kind: 'para',
+          text:
+            'Blue is cheap for a second reason too. The retina holds very few of the ' +
+            'blue-sensitive cones — a few per cent, and none at the very centre of vision — so ' +
+            'it resolves fine blue detail poorly whatever the brightness. Even so, no RGB plane ' +
+            'is truly free to spend, because every one of them is part brightness. The real fix ' +
+            'is to split brightness away from colour first, which is exactly what the next ' +
+            'slide does.',
+        },
+      ],
+    },
   },
   'chroma-subsample': {
     learner:
