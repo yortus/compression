@@ -112,6 +112,15 @@ export const ACT345_PROSE: ProseRegistry = {
       'few; a sharp edge or a single spike needs nearly all of them, because a corner is built out ' +
       'of every frequency at once.',
   },
+  'waves-2d': {
+    learner:
+      'The same idea, one axis richer. A 2-D shape — an 8×8 block of an image — is a sum of fixed ' +
+      'cosine patterns, exactly the way a signal was a sum of cosine waves. Two views of each: the ' +
+      'flat pixels, and the same values lifted into a height surface, so you can see the shape as ' +
+      'the waves it is made of. Drag the slider to keep fewer patterns and watch the reconstruction ' +
+      'blur; a smooth ramp needs almost none, a checker needs nearly all. This is the exact operation ' +
+      'JPEG performs on every block, and the next two slides are about the patterns themselves.',
+  },
   'dct-1d': {
     learner:
       'Now put a cost on it. There are two separate lossy decisions in a transform codec and this ' +
@@ -120,18 +129,6 @@ export const ACT345_PROSE: ProseRegistry = {
       'about real data, not about the transform. Try it on the spike preset, where every ' +
       'coefficient is the same size and there is nothing safe to drop. The transform here is ' +
       'DCT-II, exactly the one JPEG uses; JPEG just runs it in two dimensions.',
-  },
-  'basis-2d': {
-    learner:
-      'This is the step between one dimension and two, and it is smaller than it looks. A block ' +
-      'is not a line, so the cosines from the last two slides cannot be applied to it directly — ' +
-      'but nothing new has to be invented. Take the same eight waves running down the block, take ' +
-      'the same eight running across, and multiply every pairing of them together: that is all 64 ' +
-      'of JPEG’s patterns, and the animation is doing exactly that multiplication rather than ' +
-      'illustrating it. Click any pattern to see the two waves it came from. This also explains a ' +
-      'practical thing about encoders: because the patterns are products, the two-dimensional ' +
-      'transform separates into eight one-dimensional transforms along the rows and eight down the ' +
-      'columns, which is enormously cheaper than treating a block as one 64-value vector.',
   },
   'basis-64': {
     learner:

@@ -33,15 +33,17 @@ const error = computed(() => rmse(signal.value, sum.value))
 /** How many waves it takes to hold 99% of the signal's energy. */
 const enough = computed(() => energyRank(coeffs.value, 0.99))
 
-const SHOWN = 8
-const parts = computed(() =>
-  Array.from({ length: SHOWN }, (_, k) => ({
-    k,
-    wave: component(coeffs.value, k),
-    amplitude: Math.abs(coeffs.value[k]),
-  })))
-
-const maxAmplitude = computed(() => Math.max(...parts.value.map(p => p.amplitude), 1e-6))
+// The waves currently being summed, each centred on the pad's midline so they read as
+// oscillations rather than sinking to the baseline the way a raw signed component would.
+const ghostWaves = computed(() => {
+  const out: number[][] = []
+  for (let k = 0; k < waves.value; k++) {
+    const comp = component(coeffs.value, k)
+    const mean = comp.reduce((s, v) => s + v, 0) / comp.length
+    out.push(comp.map(v => 0.5 + v - mean))
+  }
+  return out
+})
 
 useStat('waves-intro', () => ({
   label: `${waves.value} of ${SIGNAL_LENGTH} waves`,
@@ -59,6 +61,19 @@ function usePreset(name: string, samples: number[]) {
   activePreset.value = name
 }
 
+// A preset's shape drawn small enough to sit on a button — a polyline in a 0..1 box.
+const THUMB_W = 60
+const THUMB_H = 30
+function thumbPoints(samples: number[]) {
+  const n = samples.length
+  const pad = 3
+  const w = THUMB_W - pad * 2
+  const h = THUMB_H - pad * 2
+  return samples
+    .map((v, i) => `${(pad + (i / (n - 1)) * w).toFixed(1)},${(pad + (1 - v) * h).toFixed(1)}`)
+    .join(' ')
+}
+
 function onDraw(next: number[]) {
   signal.value = next
   activePreset.value = null
@@ -72,35 +87,32 @@ function onDraw(next: number[]) {
         <button
           v-for="p in SIGNAL_PRESETS" :key="p.name"
           :class="{ active: activePreset === p.name }"
+          :title="p.name"
           @click="usePreset(p.name, p.samples)"
-        >{{ p.name }}</button>
-        <span class="hint">or drag on the signal to draw your own</span>
+        >
+          <svg class="thumb" :viewBox="`0 0 ${THUMB_W} ${THUMB_H}`" preserveAspectRatio="none">
+            <polyline :points="thumbPoints(p.samples)" />
+          </svg>
+        </button>
+        <span class="hint">{{ activePreset ? activePreset.toLowerCase() : 'or drag on the signal to draw your own' }}</span>
       </div>
 
       <div class="main-pad">
-        <SignalPad :model-value="signal" :overlay="sum" @update:model-value="onDraw" />
+        <SignalPad :model-value="signal" :overlay="sum" :ghosts="ghostWaves" signal-color="#aecbf5" overlay-color="#a7f3d0" :overlay-width="4" ghost-color="var(--positive)" :ghost-alpha="0.85" :height="300" pixel-rows @update:model-value="onDraw" />
         <div class="pad-legend">
-          <span class="key sig">the signal — 64 numbers</span>
-          <span class="key sum">the first {{ waves }} waves, added up</span>
-          <span class="err" :class="{ tiny: error < 0.02 }">error {{ (error * 100).toFixed(1) }}%</span>
+          <span class="key sig">target</span>
+          <span class="key wave">component waves</span>
+          <span class="key sum">sum of waves</span>
         </div>
       </div>
 
-      <label class="slider">
-        <span>waves</span>
-        <input type="range" min="0" :max="SIGNAL_LENGTH" v-model.number="waves" />
-        <span class="value">{{ waves }} / {{ SIGNAL_LENGTH }}</span>
-      </label>
-
-      <div class="parts">
-        <div v-for="p in parts" :key="p.k" class="part" :class="{ off: p.k >= waves }">
-          <SignalPad :model-value="p.wave" :editable="false" :height="66" centred />
-          <span class="part-label">
-            {{ p.k === 0 ? 'flat' : `${p.k}×` }}
-            <span class="bar" :style="{ width: (p.amplitude / maxAmplitude) * 100 + '%' }" />
-          </span>
-        </div>
-        <div class="more">…and {{ SIGNAL_LENGTH - SHOWN }} finer ones</div>
+      <div class="controls">
+        <label class="slider">
+          <span>waves</span>
+          <input type="range" min="0" :max="SIGNAL_LENGTH" v-model.number="waves" />
+          <span class="value">{{ waves }} / {{ SIGNAL_LENGTH }}</span>
+        </label>
+        <span class="err" :class="{ tiny: error < 0.02 }">error {{ (error * 100).toFixed(1) }}%</span>
       </div>
 
       <Fragment :index="1">
@@ -135,15 +147,31 @@ function onDraw(next: number[]) {
 
 .input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
   justify-content: center;
 }
 
 .input-row button {
-  font-size: 0.62rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.25rem;
+  border-radius: 5px;
+  line-height: 0;
+}
+
+.thumb {
+  display: block;
+  width: 3.2rem;
+  height: 1.6rem;
+}
+
+.thumb polyline {
+  fill: none;
+  stroke: #aecbf5;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .hint {
@@ -161,8 +189,8 @@ function onDraw(next: number[]) {
 
 .pad-legend {
   display: flex;
-  gap: 1rem;
-  font-size: 0.62rem;
+  gap: 1.4rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   justify-content: center;
 }
@@ -170,30 +198,29 @@ function onDraw(next: number[]) {
 .key::before {
   content: '';
   display: inline-block;
-  width: 0.7rem;
-  height: 2px;
-  margin-right: 0.3rem;
+  width: 0.9rem;
+  height: 3px;
+  margin-right: 0.35rem;
   vertical-align: middle;
 }
 
-.key.sig::before { background: var(--text-secondary); }
-.key.sum::before { background: var(--accent); }
+.key.sig::before { background: #aecbf5; }
+.key.sum::before { background: #a7f3d0; }
+.key.wave::before { background: var(--positive); }
 
-.err {
-  font-variant-numeric: tabular-nums;
-  color: var(--warning);
-}
-
-.err.tiny {
-  color: var(--positive);
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .slider {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  justify-content: center;
-  font-size: 0.62rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
@@ -206,65 +233,18 @@ function onDraw(next: number[]) {
   min-width: 4rem;
 }
 
-.parts {
-  display: flex;
-  gap: 0.35rem;
-  align-items: flex-end;
-}
-
-.part {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  transition: opacity 0.2s;
-}
-
-/*
- * The canvas is 900px wide internally and only about a ninth of the row on screen, so
- * without an explicit height it collapses to a ten-pixel smear. Fixing the height stretches
- * the drawing vertically, which is fine: every component is stretched by the same factor,
- * so their relative amplitudes — the thing the slide is comparing — still read correctly.
- */
-.part :deep(.signal-pad) {
-  height: 3.2rem;
-}
-
-/* Waves past the slider are still drawn — the audience should see what is being left out. */
-.part.off {
-  opacity: 0.25;
-}
-
-.part-label {
-  position: relative;
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  text-align: center;
+.err {
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+  color: var(--warning);
 }
 
-/* How much of this wave the signal actually contains. */
-.bar {
-  display: block;
-  height: 2px;
-  background: var(--accent);
-  margin: 0.1rem auto 0;
-  border-radius: 1px;
-}
-
-.more {
-  flex: none;
-  width: 4rem;
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  font-style: italic;
-  text-align: center;
-  padding-bottom: 0.8rem;
+.err.tiny {
+  color: var(--positive);
 }
 
 .verdict {
-  font-size: 0.66rem;
+  font-size: 0.9rem;
   line-height: 1.5;
   text-align: center;
   color: var(--text-secondary);

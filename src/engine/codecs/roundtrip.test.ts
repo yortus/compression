@@ -12,6 +12,9 @@ import {
   SIGNAL_PRESETS, SIGNAL_LENGTH, dct1d, idct1d, partialReconstruct, rmse, energyRank,
   cosineShape,
 } from '../signal'
+import {
+  SHAPE_PRESETS, GRID, dct2d, idct2d, partialReconstruct2d, energyRank2d, rmse2d,
+} from '../signal2d'
 import { sampleBlockIndices } from '../jpeg/pipeline'
 import { basisFunction } from '../jpeg/dct'
 import {
@@ -335,9 +338,33 @@ describe('1-D cosine transform', () => {
   })
 
   it('needs far fewer coefficients for a smooth signal than for noise', () => {
-    const smooth = SIGNAL_PRESETS.find(p => p.name === 'Smooth')!.samples
+    const smooth = SIGNAL_PRESETS.find(p => p.name === 'Ramp')!.samples
     const noise = SIGNAL_PRESETS.find(p => p.name === 'Noise')!.samples
     expect(energyRank(dct1d(smooth), 0.99)).toBeLessThan(energyRank(dct1d(noise), 0.99))
+  })
+})
+
+describe('2-D cosine transform', () => {
+  const SHAPES = SHAPE_PRESETS.map(p => p.grid)
+
+  it.each(SHAPE_PRESETS.map(p => p.name))('inverts exactly for the %s shape', name => {
+    const g = SHAPE_PRESETS.find(p => p.name === name)!.grid
+    const back = idct2d(dct2d(g))
+    for (let i = 0; i < GRID; i++) {
+      for (let j = 0; j < GRID; j++) expect(back[i][j]).toBeCloseTo(g[i][j], 10)
+    }
+  })
+
+  it('keeping every coefficient reconstructs exactly', () => {
+    for (const g of SHAPES) {
+      expect(rmse2d(g, partialReconstruct2d(dct2d(g), GRID * GRID))).toBeCloseTo(0, 10)
+    }
+  })
+
+  it('needs far fewer patterns for a gradient than for a checker', () => {
+    const gradient = SHAPE_PRESETS.find(p => p.name === 'Gradient')!.grid
+    const checker = SHAPE_PRESETS.find(p => p.name === 'Checker')!.grid
+    expect(energyRank2d(dct2d(gradient), 0.99)).toBeLessThan(energyRank2d(dct2d(checker), 0.99))
   })
 })
 

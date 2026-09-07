@@ -150,11 +150,22 @@ const noise = pseudoRandom(7)
 
 export const SIGNAL_PRESETS: SignalPreset[] = [
   {
-    name: 'Smooth',
-    hint: 'a few low frequencies carry almost everything',
-    // Half-cycle harmonics, so they land on the DCT's own basis rather than smearing
-    // across it — the slide's claim is that a few coefficients suffice, and it should.
-    samples: build(t => 0.5 + 0.33 * Math.cos(Math.PI * t) + 0.12 * Math.cos(3 * Math.PI * t)),
+    name: 'Square',
+    hint: 'flat runs snapped by sharp flips — odd harmonics only, but plenty of them',
+    samples: build(t => ((t * 4) % 1 < 0.5 ? 0.85 : 0.2)),
+  },
+  {
+    name: 'Triangle',
+    hint: 'the square wave with its corners rounded off, so far fewer harmonics survive',
+    samples: build(t => {
+      const p = (t * 4) % 1
+      return 0.15 + 0.7 * (p < 0.5 ? p * 2 : 2 - p * 2)
+    }),
+  },
+  {
+    name: 'Sawtooth',
+    hint: 'a ramp that resets each cycle — every harmonic, falling off slowly',
+    samples: build(t => 0.15 + 0.7 * ((t * 4) % 1)),
   },
   {
     name: 'Edge',
@@ -170,6 +181,15 @@ export const SIGNAL_PRESETS: SignalPreset[] = [
     name: 'Spike',
     hint: 'the worst case — a single sample is spread across all 64 coefficients',
     samples: build((_, i) => (i === 24 ? 1 : 0.15)),
+  },
+  {
+    name: 'Writing',
+    hint: 'a scribble — energy spread across the middle frequencies, no single winner',
+    samples: build(t =>
+      0.5
+      + 0.22 * Math.sin(2 * Math.PI * t * 4)
+      + 0.13 * Math.sin(2 * Math.PI * t * 9 + 1.7)
+      + 0.08 * Math.sin(2 * Math.PI * t * 15 + 0.5)),
   },
   {
     name: 'Noise',

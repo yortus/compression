@@ -138,20 +138,14 @@ export const SAMPLE_TEXTS: SampleText[] = [
  */
 export const LZ77_TEXTS: SampleText[] = [
   {
-    id: 'boilerplate',
-    label: 'Boilerplate',
+    id: 'english',
+    label: 'English',
     unit: 'characters',
     tokeniser: 'graphemes',
     cols: 30,
     lineFactor: 1.15,
-    credit: 'a licence header, three times — long-range repeats',
-    text: [
-      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
-      '',
-      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
-      '',
-      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
-    ].join('\n'),
+    credit: 'Austen — the same paragraph the Huffman slide codes',
+    text: SAMPLE_TEXTS[0].text,
   },
   {
     id: 'code',
@@ -180,14 +174,20 @@ export const LZ77_TEXTS: SampleText[] = [
     ].join('\n'),
   },
   {
-    id: 'english',
-    label: 'English',
+    id: 'boilerplate',
+    label: 'Boilerplate',
     unit: 'characters',
     tokeniser: 'graphemes',
     cols: 30,
     lineFactor: 1.15,
-    credit: 'Austen — the same paragraph the Huffman slide codes',
-    text: SAMPLE_TEXTS[0].text,
+    credit: 'a licence header, three times — long-range repeats',
+    text: [
+      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
+      '',
+      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
+      '',
+      'Copyright (c) 2026 Troy Gerwien. Licensed under the MIT License. See LICENSE.',
+    ].join('\n'),
   },
   {
     id: 'noise',

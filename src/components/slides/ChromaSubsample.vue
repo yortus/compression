@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { inject, ref, computed, watch, onMounted, nextTick } from 'vue'
+import { inject, ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { ycbcrPlaneToImageData, ycbcrToRgb, type YcbcrChannel } from '../../engine/jpeg/colorspace'
 import { useStat } from '../../stats/useStats'
@@ -30,21 +29,91 @@ function setCanvas(key: YcbcrChannel, el: unknown) {
 }
 const compareCanvas = ref<HTMLCanvasElement>()
 
-const sub = computed(() => pipeline.subsampled.value)
-const mode = computed(() => pipeline.subsamplingMode.value)
+/**
+ * The width the two chroma planes are scaled to, as a percentage of the luma plane —
+ * the same fraction on both axes. 100 keeps every colour sample (4:4:4); 50 is the
+ * 4:2:0 the pipeline ships; the slider runs all the way to 0, far past anything a real
+ * codec would dare, so the room can drag the colour apart by hand while the luma plane
+ * never moves.
+ */
+const percent = ref(100)
+
+/**
+ * The luma plane gets the same treatment on its own slider — and that is the point of the
+ * slide made touchable: dropping colour detail is nearly invisible, dropping luma detail
+ * wrecks the picture, because Y is the plane the eye actually reads.
+ */
+const lumaPercent = ref(100)
+
+/** Area-average `src` down to a `cw`×`ch` grid; handles any target size, not just halves. */
+function resample(src: Float64Array, width: number, height: number, cw: number, ch: number): Float64Array {
+  const out = new Float64Array(cw * ch)
+  for (let row = 0; row < ch; row++) {
+    const sr0 = Math.floor((row * height) / ch)
+    const sr1 = Math.max(sr0 + 1, Math.floor(((row + 1) * height) / ch))
+    for (let col = 0; col < cw; col++) {
+      const sc0 = Math.floor((col * width) / cw)
+      const sc1 = Math.max(sc0 + 1, Math.floor(((col + 1) * width) / cw))
+      let sum = 0, n = 0
+      for (let sr = sr0; sr < sr1 && sr < height; sr++) {
+        const base = sr * width
+        for (let sc = sc0; sc < sc1 && sc < width; sc++) {
+          sum += src[base + sc]
+          n++
+        }
+      }
+      out[row * cw + col] = sum / n
+    }
+  }
+  return out
+}
+
+/** Each plane scaled to its own slider in both axes; the full frame stays the target size. */
+const local = computed(() => {
+  const yc = pipeline.ycbcr.value
+  if (!yc) return null
+  const { y, cb, cr, width, height } = yc
+
+  const down = (p: number) => ({
+    w: Math.min(width, Math.max(1, Math.round((width * p) / 100))),
+    h: Math.min(height, Math.max(1, Math.round((height * p) / 100))),
+  })
+  const l = down(lumaPercent.value)
+  const c = down(percent.value)
+
+  return {
+    y: l.w === width && l.h === height ? y : resample(y, width, height, l.w, l.h),
+    cb: c.w === width && c.h === height ? cb : resample(cb, width, height, c.w, c.h),
+    cr: c.w === width && c.h === height ? cr : resample(cr, width, height, c.w, c.h),
+    yWidth: width,
+    yHeight: height,
+    lumaWidth: l.w,
+    lumaHeight: l.h,
+    chromaWidth: c.w,
+    chromaHeight: c.h,
+  }
+})
+
+/** Source aspect, so a plane box and the reconstruction share one shape and one size. */
+const aspect = computed(() => {
+  const yc = pipeline.ycbcr.value
+  return yc ? yc.width / yc.height : 1
+})
 
 const sizes = computed(() => {
-  const s = sub.value
+  const s = local.value
   if (!s) return null
-  const luma = s.yWidth * s.yHeight
+  const luma = s.lumaWidth * s.lumaHeight
   const chroma = s.chromaWidth * s.chromaHeight
+  const full = s.yWidth * s.yHeight
   return {
     luma,
     chroma,
     total: luma + 2 * chroma,
-    before: luma * 3,
-    /** Chroma width as a share of luma width, for drawing the planes to scale. */
-    scale: s.chromaWidth / s.yWidth,
+    before: full * 3,
+    /** Each plane's width as a share of the full frame, for drawing it to scale. */
+    lumaScale: s.lumaWidth / s.yWidth,
+    chromaScale: s.chromaWidth / s.yWidth,
   }
 })
 
@@ -54,24 +123,24 @@ const savedPercent = computed(() => {
 })
 
 useStat('chroma-subsample', () => {
-  const s = sub.value
   const z = sizes.value
-  if (!s || !z) return null
+  if (!z) return null
+  const lossy = percent.value < 100 || lumaPercent.value < 100
   return {
-    label: `Chroma subsampling · ${s.mode}`,
+    label: `Subsampling · luma ${lumaPercent.value}% · chroma ${percent.value}%`,
     rawBits: z.before * 8,
     encodedBits: z.total * 8,
     overheadBits: 0,
-    lossy: s.mode !== '4:4:4',
-    note: s.mode === '4:4:4' ? 'nothing discarded' : 'exactly the same ratio on every image',
+    lossy,
+    note: lossy ? 'the same ratio on every image' : 'nothing discarded',
   }
 })
 
 function drawPlanes() {
-  const s = sub.value
+  const s = local.value
   if (!s) return
   const dims: Record<YcbcrChannel, [number, number]> = {
-    y: [s.yWidth, s.yHeight],
+    y: [s.lumaWidth, s.lumaHeight],
     cb: [s.chromaWidth, s.chromaHeight],
     cr: [s.chromaWidth, s.chromaHeight],
   }
@@ -86,7 +155,7 @@ function drawPlanes() {
 }
 
 function drawCompare() {
-  const s = sub.value
+  const s = local.value
   const canvas = compareCanvas.value
   if (!s || !canvas) return
 
@@ -101,13 +170,17 @@ function drawCompare() {
   }
 
   const img = ctx.createImageData(s.yWidth, s.yHeight)
-  // Nearest-neighbour upsample, which is what makes the colour fringing visible.
+  // Nearest-neighbour upsample of every plane, sampled at the output pixel's centre so the
+  // reduced grid stays aligned with the full one — otherwise the picture jumps by a pixel
+  // the moment a plane first drops below full resolution.
   for (let row = 0; row < s.yHeight; row++) {
-    const cRow = Math.min(Math.floor((row * s.chromaHeight) / s.yHeight), s.chromaHeight - 1)
+    const lRow = Math.min(Math.floor(((row + 0.5) * s.lumaHeight) / s.yHeight), s.lumaHeight - 1)
+    const cRow = Math.min(Math.floor(((row + 0.5) * s.chromaHeight) / s.yHeight), s.chromaHeight - 1)
     for (let col = 0; col < s.yWidth; col++) {
-      const cCol = Math.min(Math.floor((col * s.chromaWidth) / s.yWidth), s.chromaWidth - 1)
+      const lCol = Math.min(Math.floor(((col + 0.5) * s.lumaWidth) / s.yWidth), s.lumaWidth - 1)
+      const cCol = Math.min(Math.floor(((col + 0.5) * s.chromaWidth) / s.yWidth), s.chromaWidth - 1)
       const [r, g, b] = ycbcrToRgb(
-        s.y[row * s.yWidth + col],
+        s.y[lRow * s.lumaWidth + lCol],
         s.cb[cRow * s.chromaWidth + cCol],
         s.cr[cRow * s.chromaWidth + cCol],
       )
@@ -126,11 +199,72 @@ function draw() {
   drawCompare()
 }
 
-watch([sub, showOriginal], () => nextTick(draw))
-onMounted(draw)
+watch([local, showOriginal], () => nextTick(draw))
 
-const PLANE_META: { key: YcbcrChannel; label: string }[] = [
-  { key: 'y', label: 'Y' },
+/**
+ * The reconstruction is shown 1:1 at its native pixel size (512 for the sample images);
+ * whatever width is left over goes to the three source planes, which shrink to fit. The
+ * compare is only ever capped so it and its buttons cannot overflow the stage height.
+ */
+const stage = ref<HTMLElement>()
+const compareSize = ref(320)
+const planeImg = ref(140)
+/** Only float the retina aside in when the column leaves real room below its content. */
+const showEye = ref(false)
+/** Widest the aside may be before it would reach the reconstruction. */
+const eyeMax = ref(360)
+
+function recompute() {
+  const el = stage.value
+  if (!el) return
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 28
+  const H = el.clientHeight
+  const W = el.clientWidth
+  const yc = pipeline.ycbcr.value
+  const nativeW = yc ? yc.width : 512
+  const arW = yc ? yc.width / yc.height : 1
+
+  const buttonsReserve = 2.6 * rem
+  compareSize.value = Math.max(120, Math.floor(Math.min(nativeW, (H - buttonsReserve) * arW)))
+
+  const colGap = 1.4 * rem
+  const groupGap = 1.2 * rem
+  const pairGap = 0.6 * rem
+  const leftW = W - compareSize.value - colGap
+  const byWidth = (leftW - groupGap - pairGap) / 3
+  eyeMax.value = Math.round(leftW + 0.4 * rem)
+
+  // Reserve room for the sliders, labels, tally and the verdict — whose height grows as the
+  // column narrows — then let the planes fill whatever is left, so they get large when the
+  // screen is roomy and shrink only when it is genuinely tight. Estimated, not measured, so
+  // the size is decided in one synchronous pass with no layout race.
+  // Reserve room for the retina aside; the planes take the rest. With the verdict gone there
+  // is space for a generous panel while the planes still fill their width.
+  // Reserve room for the aside at the bottom (top-aligned content needs only its own
+  // height cleared), and a column wide enough to hold it clear of the image.
+  const eyeReserve = 5.5 * rem
+  const byHeightWithEye = (H - 7 * rem - eyeReserve) * arW
+  showEye.value = byHeightWithEye > 2 * rem && leftW > 13.5 * rem
+  const byHeight = showEye.value ? byHeightWithEye : (H - 7 * rem) * arW
+
+  planeImg.value = Math.max(48, Math.floor(Math.min(byWidth, byHeight, 14 * rem)))
+}
+
+let ro: ResizeObserver | null = null
+onMounted(() => {
+  draw()
+  recompute()
+  ro = new ResizeObserver(() => recompute())
+  if (stage.value) ro.observe(stage.value)
+  window.addEventListener('resize', recompute)
+})
+onUnmounted(() => {
+  ro?.disconnect()
+  window.removeEventListener('resize', recompute)
+})
+watch(() => pipeline.ycbcr.value, () => nextTick(recompute))
+
+const CHROMA_META: { key: YcbcrChannel; label: string }[] = [
   { key: 'cb', label: 'Cb' },
   { key: 'cr', label: 'Cr' },
 ]
@@ -142,23 +276,57 @@ function kb(samples: number) {
 
 <template>
   <SlideLayout>
-    <div class="sub-slide">
+    <div class="stage" ref="stage" :style="{ '--ar': aspect, '--pimg': planeImg + 'px', '--cimg': compareSize + 'px', '--eyemax': eyeMax + 'px' }">
       <div class="left">
-        <h3>The three planes, drawn to scale</h3>
         <div class="planes">
-          <div
-            v-for="meta in PLANE_META" :key="meta.key"
-            class="plane"
-            :style="{ width: (meta.key === 'y' ? 1 : (sizes?.scale ?? 1)) * 9 + 'rem' }"
-          >
-            <span class="label">{{ meta.label }}</span>
-            <canvas :ref="el => setCanvas(meta.key, el)" v-loupe />
-            <span class="size">{{ kb(meta.key === 'y' ? (sizes?.luma ?? 0) : (sizes?.chroma ?? 0)) }}</span>
+          <!-- Luma on its own slider, so the room can watch dropping it wreck the picture. -->
+          <div class="group luma">
+            <div class="plane">
+              <span class="label">Y</span>
+              <div class="slot">
+                <canvas
+                  :ref="el => setCanvas('y', el)"
+                  v-loupe
+                  :style="{ width: (sizes?.lumaScale ?? 1) * 100 + '%' }"
+                />
+              </div>
+              <span class="size">{{ kb(sizes?.luma ?? 0) }}</span>
+            </div>
+            <div class="knob">
+              <div class="knob-head">
+                <span class="knob-label">Luma</span>
+                <span class="knob-value">{{ lumaPercent }}%</span>
+              </div>
+              <input type="range" :min="0" :max="100" step="10" v-model.number="lumaPercent" />
+            </div>
+          </div>
+
+          <!-- The two colour planes, together on one slider. -->
+          <div class="group chroma">
+            <div class="pair">
+              <div class="plane" v-for="meta in CHROMA_META" :key="meta.key">
+                <span class="label">{{ meta.label }}</span>
+                <div class="slot">
+                  <canvas
+                    :ref="el => setCanvas(meta.key, el)"
+                    v-loupe
+                    :style="{ width: (sizes?.chromaScale ?? 1) * 100 + '%' }"
+                  />
+                </div>
+                <span class="size">{{ kb(sizes?.chroma ?? 0) }}</span>
+              </div>
+            </div>
+            <div class="knob">
+              <div class="knob-head">
+                <span class="knob-label">Colour</span>
+                <span class="knob-value">{{ percent }}%</span>
+              </div>
+              <input type="range" :min="0" :max="100" step="10" v-model.number="percent" />
+            </div>
           </div>
         </div>
 
         <div class="tally">
-          <span class="mode">{{ mode }}</span>
           <span class="arrow">{{ kb(sizes?.before ?? 0) }} → {{ kb(sizes?.total ?? 0) }}</span>
           <span class="saved" :class="{ none: savedPercent === 0 }">
             {{ savedPercent === 0 ? 'nothing discarded' : `−${savedPercent.toFixed(0)}%` }}
@@ -166,151 +334,297 @@ function kb(samples: number) {
         </div>
       </div>
 
+      <!-- The reconstruction, always shown 1:1 at native size. -->
       <div class="right">
+        <canvas ref="compareCanvas" class="compare" v-loupe />
         <div class="ab">
-          <button :class="{ active: !showOriginal }" @click="showOriginal = false">As stored</button>
+          <button :class="{ active: !showOriginal }" @click="showOriginal = false">Compressed</button>
           <button :class="{ active: showOriginal }" @click="showOriginal = true">Original</button>
         </div>
-        <canvas ref="compareCanvas" class="compare" v-loupe />
-        <p class="caption">flick between them — and use the loupe on an edge where colour changes</p>
       </div>
 
-      <Fragment :index="1">
-        <p class="verdict">
-          Two of the three planes are stored at a fraction of the resolution, and the third is left
-          alone. At 4:2:0 that is exactly half the data, on
-          <em>every image, every time</em> — no measuring, no adapting, no bet on the content. It
-          works for one reason only: the plane holding the detail your eye is good at was the one we
-          kept. Point the same trick at Y instead and the picture falls apart.
-        </p>
-      </Fragment>
+      <!-- Why it works: the eye carries far more luma cells than colour ones. Pinned to the
+           slide's bottom-left so it stays put rather than floating with the centred column. -->
+      <aside v-if="showEye" class="eye-panel">
+        <svg class="eye-ic" viewBox="0 0 48 30" aria-hidden="true">
+          <path d="M1.5 15 Q24 1 46.5 15 Q24 29 1.5 15 Z" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <circle cx="24" cy="15" r="7.5" fill="var(--accent)" opacity="0.45" />
+          <circle cx="24" cy="15" r="3.2" fill="currentColor" />
+        </svg>
+        <div class="cells">
+          <div class="cell-row">
+            <span class="dots rods"><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></span>
+            <span class="cell-text"><b>~120M</b> rods · luma</span>
+          </div>
+          <div class="cell-row">
+            <span class="dots cones"><i class="r" /><i class="g" /><i class="b" /></span>
+            <span class="cell-text"><b>~6M</b> cones · colour</span>
+          </div>
+        </div>
+      </aside>
     </div>
   </SlideLayout>
 </template>
 
 <style scoped>
-.sub-slide {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 1rem 2rem;
+.stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
   width: 100%;
   height: 100%;
-  align-items: center;
+  position: relative;
 }
 
-.left, .right {
+.left {
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.right {
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  min-height: 0;
 }
 
-h3 {
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-/* Bottom-aligned: the chroma planes shrink downwards from a common top edge, which
-   reads as "these got smaller" rather than "these floated". */
 .planes {
   display: flex;
-  gap: 0.8rem;
   align-items: flex-start;
+  justify-content: center;
+  gap: 1.2rem;
 }
 
-.plane {
+.group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
-  transition: width 0.3s ease;
+  gap: 0.45rem;
 }
 
-.plane canvas {
+/* Pinned to the plane width so a wide slider label can never stretch the group and push
+   the row off the column. */
+.group.luma {
+  width: var(--pimg);
+}
+
+.group.chroma {
+  width: calc(2 * var(--pimg) + 0.6rem);
+}
+
+.pair {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.plane {
+  width: var(--pimg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Fixed box the canvas shrinks within, top-anchored so every plane keeps a common top
+   edge and nothing around it moves as a slider runs. */
+.slot {
   width: 100%;
+  aspect-ratio: var(--ar, 1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.slot canvas {
   border-radius: 3px;
   image-rendering: pixelated;
 }
 
+/* The reconstruction is shown 1:1 at native size; smooth resampling reads better here. */
+.compare {
+  width: var(--cimg);
+  height: auto;
+  border-radius: 4px;
+  image-rendering: auto;
+}
+
 .label {
-  font-size: 0.62rem;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
 .size {
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.knob {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.knob-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.knob-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knob-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.knob input[type="range"] {
+  width: 100%;
+}
+
+.ab {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.ab button {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 4px;
 }
 
 .tally {
   display: flex;
-  align-items: baseline;
-  gap: 0.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  /* Fixed so swapping "nothing discarded" for a −N% figure — different length and size —
+     cannot change the row height and nudge the rest of the column. */
+  height: 1.9rem;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-.mode {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-
 .arrow {
-  font-size: 0.7rem;
+  font-size: 0.95rem;
   color: var(--text-secondary);
 }
 
 .saved {
-  font-size: 0.8rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--positive);
 }
 
 .saved.none {
-  font-size: 0.65rem;
+  font-size: 0.9rem;
   font-weight: 400;
   color: var(--text-secondary);
 }
 
-.ab {
+/* A supporting aside pinned to the slide's bottom-left: why colour is the plane to spend —
+   the retina has far more luma cells than colour ones. */
+.eye-panel {
+  position: absolute;
+  /* Equal margins off the slide's left and bottom (the stage is inset asymmetrically by the
+     slide-area padding, so the two offsets differ to land the same visual gap). */
+  left: 0.3rem;
+  bottom: 0.55rem;
+  max-width: var(--eyemax);
+  /* Scale the whole card with the width available up to the image — everything inside is in
+     em — so it fills a roomy column (up to ~1.5x) and shrinks to fit a tight one. */
+  font-size: clamp(0.66rem, calc(var(--eyemax) / 21), 1.05rem);
   display: flex;
-  gap: 0.25rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 1em;
+  padding: 1em 1.2em;
+  border: 1px solid var(--border);
+  border-radius: 0.55em;
+  background: var(--bg-surface);
 }
 
-.ab button {
-  padding: 0.2rem 0.5rem;
-  font-size: 0.62rem;
-  border-radius: 4px;
-}
-
-.compare {
-  max-width: 100%;
-  max-height: 42vh;
-  border-radius: 4px;
-}
-
-.caption {
-  font-size: 0.62rem;
-  font-style: italic;
+.eye-ic {
+  width: 4em;
+  height: auto;
   color: var(--text-secondary);
+  flex: none;
 }
 
-/* The grid item is Fragment's own root element, not the paragraph inside it, so the
-   span has to be set on the child component rather than on .verdict. */
-.sub-slide > :deep(.fragment) {
-  grid-column: 1 / -1;
+.cells {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
 }
 
-.verdict {
-  font-size: 0.68rem;
-  line-height: 1.45;
-  max-width: 54rem;
-  margin: 0 auto;
-  text-align: center;
+.cell-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.16em;
+  width: 4em;
+  flex: none;
+}
+
+.dots i {
+  width: 0.3em;
+  height: 0.3em;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  flex: none;
+}
+
+.dots.cones {
+  gap: 0.28em;
+}
+
+.dots.cones i {
+  width: 0.46em;
+  height: 0.46em;
+}
+
+.dots.cones i.r { background: #e06666; }
+.dots.cones i.g { background: #6abf6a; }
+.dots.cones i.b { background: #6699e6; }
+
+.cell-text {
+  font-size: 1em;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell-text b {
+  color: var(--text);
+  font-weight: 700;
 }
 </style>

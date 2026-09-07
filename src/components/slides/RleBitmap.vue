@@ -67,7 +67,9 @@ const CENTRE_H = 580
 const RIBBON_X = CENTRE_X + 18
 const RIBBON_Y = CENTRE_Y + 18
 const RIBBON_W = CENTRE_W - 36
-const RIBBON_H = 432
+// Fills the panel down to a strip for the truncation note. More rows means more bytes on
+// screen and fewer truncated; the badge is allowed to overlay the lower rows.
+const RIBBON_H = 524
 
 /** Same band as the other exploration slides: what the decoder must be sent in advance. */
 const PRIMER_Y = CENTRE_Y + CENTRE_H + 24
@@ -745,14 +747,19 @@ function drawCentre(ctx: CanvasRenderingContext2D) {
   // on the slide — and each arrives already tinted, so a run appears as a band the moment it
   // exists and "there are no runs in this one" is something you watch fail to happen.
   //
-  // Clipped to the pane. The in-place beats check every byte against `capacity` before
-  // drawing it, but the compaction beat interpolates from *expanded* positions — a run near
-  // the end of a full pane has been pushed past the bottom of it by the count bytes in
-  // front, and `bytePos` will happily return a row below the panel. Those glyphs were being
-  // painted over the sprite picker. Clipped, a pair that starts off-pane slides in from the
-  // edge, which is what it is doing anyway.
+  // Clipped to the *visible rows*, not just the panel. The in-place beats check every byte
+  // against `capacity` before drawing it, but the compaction beat interpolates from
+  // *expanded* positions — a run near the end of a full pane has been pushed past the last
+  // visible row by the count bytes in front of it, and `bytePos` will happily return a row
+  // below the dump. The panel is taller than the dump, so clipping only to the panel left a
+  // dead band beneath the last row where those bytes popped into view the instant the fold
+  // ended. Clipped to the rows the fold itself drew into, such a pair stays hidden and
+  // slides up into the stream during compaction instead of appearing at the bottom.
   ctx.save()
   roundRect(ctx, CENTRE_X + 1, CENTRE_Y + 1, CENTRE_W - 2, CENTRE_H - 2, 8)
+  ctx.clip()
+  ctx.beginPath()
+  ctx.rect(CENTRE_X, RIBBON_Y, CENTRE_W, m.source.rows * m.source.rowH)
   ctx.clip()
   if (anim.insert <= 0.001) {
     drawRibbon(ctx, m.source, RIBBON_X, RIBBON_Y, anim.scan)

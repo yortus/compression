@@ -1,10 +1,6 @@
 import type { Act, SlideDef } from './types'
 
-import Step3Blocks from '../components/steps/Step3Blocks.vue'
-import Step4DCT from '../components/steps/Step4DCT.vue'
-import Step5Quantization from '../components/steps/Step5Quantization.vue'
 import Step6Zigzag from '../components/steps/Step6Zigzag.vue'
-import Step7RLE from '../components/steps/Step7RLE.vue'
 import Step9Summary from '../components/steps/Step9Summary.vue'
 
 import RleBitmap from '../components/slides/RleBitmap.vue'
@@ -22,8 +18,7 @@ import Optimisation from '../components/slides/Optimisation.vue'
 import HuffmanCodes from '../components/slides/HuffmanCodes.vue'
 import Lz77 from '../components/slides/Lz77.vue'
 import WavesIntro from '../components/slides/WavesIntro.vue'
-import Dct1D from '../components/slides/Dct1D.vue'
-import Basis2D from '../components/slides/Basis2D.vue'
+import Waves2D from '../components/slides/Waves2D.vue'
 import Basis64 from '../components/slides/Basis64.vue'
 import JpegPipeline from '../components/slides/JpegPipeline.vue'
 
@@ -161,7 +156,6 @@ export const SLIDES: SlideDef[] = [
     component: ChromaSubsample,
     tag: 'core',
     controls: ['image', 'subsampling'],
-    fragments: 2,
   },
   {
     id: 'waves-intro',
@@ -173,40 +167,13 @@ export const SLIDES: SlideDef[] = [
     fragments: 2,
   },
   {
-    id: 'dct-1d',
+    id: 'waves-2d',
     act: 'fourier',
-    title: 'One Dimension First',
-    subtitle: 'Keep the coefficients that matter',
-    component: Dct1D,
+    title: 'The Same, in Two Dimensions',
+    subtitle: 'A shape is a sum of 2-D cosine patterns',
+    component: Waves2D,
     tag: 'core',
     fragments: 2,
-  },
-  {
-    id: 'blocks',
-    act: 'fourier',
-    title: '8×8 Blocks',
-    subtitle: 'Per-block pipeline',
-    component: Step3Blocks,
-    tag: 'core',
-    controls: ['image', 'quality', 'block'],
-  },
-  {
-    id: 'basis-2d',
-    act: 'fourier',
-    title: 'From Waves to Patterns',
-    subtitle: 'One dimension, crossed with itself',
-    component: Basis2D,
-    tag: 'core',
-    fragments: 2,
-  },
-  {
-    id: 'dct-2d',
-    act: 'fourier',
-    title: 'DCT',
-    subtitle: 'Discrete Cosine Transform',
-    component: Step4DCT,
-    tag: 'core',
-    controls: ['image', 'quality', 'block'],
   },
   {
     id: 'basis-64',
@@ -219,24 +186,6 @@ export const SLIDES: SlideDef[] = [
     controls: ['image', 'quality', 'block'],
     // One fragment per phase, so the arrow keys drive the animation like any other build.
     fragments: 4,
-  },
-  {
-    id: 'quantisation',
-    act: 'fourier',
-    title: 'Quantization',
-    subtitle: 'Controlled information loss',
-    component: Step5Quantization,
-    tag: 'core',
-    controls: ['image', 'quality', 'block'],
-  },
-  {
-    id: 'rle-on-coeffs',
-    act: 'fourier',
-    title: 'Collapsing the Zeros',
-    subtitle: 'The same run-length coder, on quantised coefficients',
-    component: Step7RLE,
-    tag: 'core',
-    controls: ['image', 'quality', 'block'],
   },
   {
     id: 'zigzag',

@@ -106,15 +106,16 @@ interface CellMark {
 /**
  * How many references the left panel draws.
  *
- * Every match is real, and on English prose there are fifty-odd of them — mostly three
- * characters long, " a " pointing back at " a ". Drawn all at once they are a scribble, and
- * because their spans overlap, each one's highlight overwrote its neighbour's: an arc would
- * end on text coloured for a different reference, or on no colour at all, which is what made
- * the early ones look like they joined unrelated things. The panel features the longest
- * references instead, chosen so that no two share a character, and says how many it left
- * out. The ratio, the stat and the token ribbon are all still computed over every token.
+ * The real limiter is not this number but the non-overlap rule below: a reference is only
+ * drawn if neither of its ends touches a character a longer one already claimed, so no two
+ * arcs share a glyph and none overwrites another's highlight. That alone caps English at 19,
+ * source code at 8 and the triple licence header at 2, however high this goes — noise draws
+ * none. This is the ceiling on top of that, longest first, so the only thing it ever drops is
+ * the short tail of three-character matches (" a " back to " a ") that would read as a
+ * scribble rather than as structure. What was left out is reported under the panel, and the
+ * ratio, the stat and the token ribbon are all still computed over every token.
  */
-const MAX_ARCS = 14
+const MAX_ARCS = 24
 
 interface Model {
   symbols: string[]
@@ -232,14 +233,18 @@ function buildModel(): Model | null {
       : `${matches.length} reference${matches.length === 1 ? '' : 's'} found, all drawn`
 
   // A literal shows as its own character; a match shows as the instruction it is. Both go
-  // into one ribbon so the stream reads as a single thing the decoder walks.
+  // into one ribbon so the stream reads as a single thing the decoder walks. A match is
+  // coloured only when it is one of the drawn arcs, so a coloured token here always has a
+  // highlighted reference behind it on the left; the long tail of short matches that never
+  // earned an arc stays dim rather than pointing at unmarked text.
+  const drawnArcs = new Set(arcs.map(a => a.order))
   const glyphs: RibbonGlyph[] = []
   tokens.forEach((t, order) => {
     if (t.kind === 'literal') {
       const ch = t.value === '\n' ? '↵' : t.value === ' ' ? '·' : t.value
       glyphs.push({ ch, colour: colours.dim })
     } else {
-      const colour = tokenColour(order, 2, colours.dim)
+      const colour = drawnArcs.has(order) ? tokenColour(order, 2, colours.dim) : colours.dim
       for (const ch of `«${t.distance},${t.length}»`) glyphs.push({ ch, colour })
     }
   })

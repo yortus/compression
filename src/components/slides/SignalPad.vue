@@ -21,6 +21,12 @@ const props = withDefaults(defineProps<{
   /** Where 0 sits vertically: signals live in 0..1, components swing about zero. */
   centred?: boolean
   overlayColor?: string
+  overlayWidth?: number
+  signalColor?: string
+  ghostColor?: string
+  ghostAlpha?: number
+  /** Draw the signal (top) and overlay (bottom) as rows of intensity-coded pixels. */
+  pixelRows?: boolean
 }>(), {
   overlay: null,
   ghosts: () => [],
@@ -28,6 +34,11 @@ const props = withDefaults(defineProps<{
   height: 190,
   centred: false,
   overlayColor: 'var(--accent)',
+  overlayWidth: 2.5,
+  signalColor: 'var(--text-secondary)',
+  ghostColor: 'var(--accent-dim)',
+  ghostAlpha: 0.35,
+  pixelRows: false,
 })
 
 const emit = defineEmits<{ 'update:modelValue': [number[]] }>()
@@ -38,6 +49,11 @@ let drawingAt = -1
 
 function cssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
+
+// Accept either a literal colour or a `var(--token)` reference and resolve to a value.
+function resolveColour(c: string) {
+  return c.startsWith('var(') ? cssVar(c.slice(4, -1)) : c
 }
 
 function yOf(v: number, h: number) {
@@ -51,6 +67,17 @@ function yOf(v: number, h: number) {
 
 function xOf(i: number, n: number) {
   return ((i + 0.5) / n) * W
+}
+
+// One value per sample, drawn as a square whose base colour is fixed and whose intensity
+// is the sample height — the signal as a strip of pixels. A 1px gap separates them.
+function pixelRow(ctx: CanvasRenderingContext2D, data: readonly number[], colour: string, y: number, side: number) {
+  ctx.fillStyle = colour
+  for (let i = 0; i < data.length; i++) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, data[i]))
+    ctx.fillRect(i * side, y, side - 1, side - 1)
+  }
+  ctx.globalAlpha = 1
 }
 
 function series(ctx: CanvasRenderingContext2D, data: readonly number[], h: number, colour: string, width: number) {
@@ -86,16 +113,17 @@ function draw() {
   ctx.stroke()
 
   for (const g of props.ghosts) {
-    ctx.globalAlpha = 0.35
-    series(ctx, g, h, cssVar('--accent-dim'), 1.5)
+    ctx.globalAlpha = props.ghostAlpha
+    series(ctx, g, h, resolveColour(props.ghostColor), 1.5)
     ctx.globalAlpha = 1
   }
 
   const n = props.modelValue.length
-  series(ctx, props.modelValue, h, cssVar('--text-secondary'), 2)
+  const signalColour = resolveColour(props.signalColor)
+  series(ctx, props.modelValue, h, signalColour, 2)
 
   // Sample dots make it obvious this is 64 numbers, not a curve.
-  ctx.fillStyle = cssVar('--text-secondary')
+  ctx.fillStyle = signalColour
   for (let i = 0; i < n; i++) {
     ctx.beginPath()
     ctx.arc(xOf(i, n), yOf(props.modelValue[i], h), 2, 0, Math.PI * 2)
@@ -103,10 +131,15 @@ function draw() {
   }
 
   if (props.overlay) {
-    const colour = props.overlayColor.startsWith('var(')
-      ? cssVar(props.overlayColor.slice(4, -1))
-      : props.overlayColor
-    series(ctx, props.overlay, h, colour, 2.5)
+    series(ctx, props.overlay, h, resolveColour(props.overlayColor), props.overlayWidth)
+  }
+
+  // Pixel strips: the target across the top, the reconstruction across the bottom, each a
+  // square per sample sized to the point spacing so the pixels line up with the graph.
+  if (props.pixelRows) {
+    const side = W / n
+    pixelRow(ctx, props.modelValue, signalColour, 0, side)
+    if (props.overlay) pixelRow(ctx, props.overlay, resolveColour(props.overlayColor), h - (side - 1), side)
   }
 }
 

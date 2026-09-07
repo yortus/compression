@@ -273,7 +273,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .slide-area {
   min-height: 0;
   overflow: hidden;
-  padding: 0.55rem 0.7rem 0.35rem;
+  padding: 0.3rem 0.45rem 0.2rem;
 }
 
 /* Controls get the whole row — nothing may squeeze them off the bar. */
