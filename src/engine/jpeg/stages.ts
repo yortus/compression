@@ -4,6 +4,7 @@ import { zigzagScan } from './zigzag'
 import { encodeRLE } from './rle'
 import { idealBits, entropyBits } from '../codecs/entropy'
 import { packSymbol, encodeBlock } from './huffman'
+import { acEncodedBits } from './acCoding'
 import type { Block, AllBlocks, ChannelBlocks } from './types'
 
 /**
@@ -293,6 +294,23 @@ export function compareScanOrdersWholeImage(cache: PipelineCache): {
     rasterSymbolBits: orderSymbolBits(q, flattenRaster),
     zigzagSymbolBits: orderSymbolBits(q, zigzagScan),
   }
+}
+
+/**
+ * Real baseline-JPEG AC bits over every block in both scan orders — the honest cost the
+ * zigzag slide compares, from the standard luminance Huffman table.
+ */
+export function acBitsWholeImage(cache: PipelineCache): { rasterAcBits: number; zigzagAcBits: number } {
+  const q = cache.quantizedBlocks
+  let raster = 0
+  let zigzag = 0
+  for (const channel of [q.y, q.cb, q.cr]) {
+    for (const b of channel.blocks) {
+      raster += acEncodedBits(flattenRaster(b))
+      zigzag += acEncodedBits(zigzagScan(b))
+    }
+  }
+  return { rasterAcBits: raster, zigzagAcBits: zigzag }
 }
 
 function orderSymbolBits(blocks: AllBlocks, order: (b: Block) => number[]): number {

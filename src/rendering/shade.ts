@@ -14,6 +14,14 @@
 export const GREEN: readonly [number, number, number] | null = [0.26, 1, 0.48]
 
 /**
+ * The two waves-act tints, as per-channel multipliers that land on the pale signal and
+ * reconstruction hues at full value — #aecbf5 and #a7f3d0, the same blue and green the two
+ * waves slides use. Passed to the shade functions so one block can be blue and another green.
+ */
+export const PALE_BLUE: readonly [number, number, number] = [174 / 255, 203 / 255, 245 / 255]
+export const PALE_GREEN: readonly [number, number, number] = [167 / 255, 243 / 255, 208 / 255]
+
+/**
  * Contrast about mid-grey, applied before the tint. 1 is untouched; higher deepens the
  * darks and pushes the brights. This is the knob to turn for more punch.
  *
@@ -34,9 +42,13 @@ export const CONTRAST = 1.5
 export const PATTERN_CONTRAST = 1
 
 /** The one place the stretch and the tint are applied; everything else goes through it. */
-function toRgb(value: number, contrast: number): [number, number, number] {
+function toRgb(
+  value: number,
+  contrast: number,
+  tint: readonly [number, number, number] | null = GREEN,
+): [number, number, number] {
   const v = 128 + (value - 128) * contrast
-  return GREEN ? [v * GREEN[0], v * GREEN[1], v * GREEN[2]] : [v, v, v]
+  return tint ? [v * tint[0], v * tint[1], v * tint[2]] : [v, v, v]
 }
 
 /**
@@ -45,8 +57,8 @@ function toRgb(value: number, contrast: number): [number, number, number] {
  * `data` is a `Uint8ClampedArray`, which rounds and clamps on assignment, so raw floats
  * and out-of-range values from the contrast stretch need no handling here.
  */
-export function writeShade(data: Uint8ClampedArray, offset: number, value: number, contrast = CONTRAST) {
-  const [r, g, b] = toRgb(value, contrast)
+export function writeShade(data: Uint8ClampedArray, offset: number, value: number, contrast = CONTRAST, tint: readonly [number, number, number] | null = GREEN) {
+  const [r, g, b] = toRgb(value, contrast, tint)
   data[offset] = r
   data[offset + 1] = g
   data[offset + 2] = b
@@ -54,9 +66,9 @@ export function writeShade(data: Uint8ClampedArray, offset: number, value: numbe
 }
 
 /** The same shade as a CSS colour, for drawing a sample as a rectangle rather than a pixel. */
-export function shadeCss(value: number, contrast = CONTRAST): string {
+export function shadeCss(value: number, contrast = CONTRAST, tint: readonly [number, number, number] | null = GREEN): string {
   const clamp = (n: number) => Math.round(Math.max(0, Math.min(255, n)))
-  const [r, g, b] = toRgb(value, contrast)
+  const [r, g, b] = toRgb(value, contrast, tint)
   return `rgb(${clamp(r)},${clamp(g)},${clamp(b)})`
 }
 
@@ -78,6 +90,7 @@ export function fillBlock8(
   y: number,
   size: number,
   contrast = CONTRAST,
+  tint: readonly [number, number, number] | null = GREEN,
 ) {
   for (let r = 0; r < 8; r++) {
     const y0 = Math.round(y + (r * size) / 8)
@@ -85,18 +98,18 @@ export function fillBlock8(
     for (let c = 0; c < 8; c++) {
       const x0 = Math.round(x + (c * size) / 8)
       const x1 = Math.round(x + ((c + 1) * size) / 8)
-      ctx.fillStyle = shadeCss(block[r][c], contrast)
+      ctx.fillStyle = shadeCss(block[r][c], contrast, tint)
       ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
     }
   }
 }
 
 /** Paint an 8x8 block onto an 8x8 canvas. Both slides do this constantly. */
-export function paintBlock8(canvas: HTMLCanvasElement, block: number[][], contrast = CONTRAST) {
+export function paintBlock8(canvas: HTMLCanvasElement, block: number[][], contrast = CONTRAST, tint: readonly [number, number, number] | null = GREEN) {
   const ctx = canvas.getContext('2d')!
   const img = ctx.createImageData(8, 8)
   for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) writeShade(img.data, (r * 8 + c) * 4, block[r][c], contrast)
+    for (let c = 0; c < 8; c++) writeShade(img.data, (r * 8 + c) * 4, block[r][c], contrast, tint)
   }
   ctx.putImageData(img, 0, 0)
 }

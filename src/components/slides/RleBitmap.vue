@@ -552,7 +552,7 @@ function drawPrimer(ctx: CanvasRenderingContext2D) {
   ctx.fillText(
     `THE PALETTE · ${m.pixels.palette.length} ENTRIES · ${Math.round(m.overheadBits / 8)} BYTES`
     + (lost
-      ? ` — the artwork had ${m.pixels.sourceColours} colours, so these cannot be given back`
+      ? ` — the artwork had ${m.pixels.sourceColours} colours, so this is lossy`
       : ' — an index means nothing without it, so it travels with the picture'),
     MARGIN + 26, PRIMER_Y + 30)
 

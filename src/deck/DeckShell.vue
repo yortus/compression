@@ -164,7 +164,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .deck-shell {
   --chrome-top: 2.6rem;
   --chrome-row: 1.9rem;
-  --rail: 8.5rem;
+  --rail: 8.6rem;
   width: 100%;
   height: 100%;
   display: grid;
@@ -173,13 +173,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /*
- * The base sizes assume a projector. On a laptop the chrome has to give some width
- * back, or the control bar runs off the end — controls disappearing is the one thing
- * the shell must never do.
+ * The base sizes assume a projector. On a laptop the top chrome gives a little height back
+ * so the slide keeps room; the rail stays wide enough that the longest entry never clips.
  */
 @media (max-width: 1500px) {
   .deck-shell {
-    --rail: 6.6rem;
     --chrome-top: 2.4rem;
   }
 }

@@ -8,8 +8,8 @@ import { inverseDCT } from '../../engine/jpeg/dct'
 import { scaleQTable, LUMA_TABLE } from '../../engine/jpeg/quantization'
 import { ZIGZAG_ORDER, zigzagIndex } from '../../engine/jpeg/zigzag'
 import type { Block } from '../../engine/jpeg/types'
-import { paintBlock8 as paintBlock, writeShade, fillBlock8 } from '../../rendering/shade'
-import { drawStamp, stampBounds } from '../../rendering/stamp'
+import { paintBlock8 as paintBlock, fillBlock8, CONTRAST, PALE_BLUE, PALE_GREEN } from '../../rendering/shade'
+import { drawStamp, stampBounds, ratioVerdict } from '../../rendering/stamp'
 import { useStat } from '../../stats/useStats'
 
 /**
@@ -60,7 +60,7 @@ const pipeline = inject(PIPELINE_KEY)!
  * rather than independent choices. Changing one means changing another.
  */
 /** Both divide by 8, so a cell is a whole number of pixels wide — see CLAUDE.md. */
-const TILE = 80
+const TILE = 76
 const GAP = 8
 const GRID_SPAN = TILE * 8 + GAP * 7
 const STATION = 200
@@ -76,11 +76,17 @@ const SRC_X = MARGIN
 const GRID_X = SRC_X + STATION + ARROW_RUN
 const RECON_X = GRID_X + GRID_SPAN + ARROW_RUN
 const STAGE_W = RECON_X + STATION + MARGIN
-/** Aspect between the box a laptop offers and the one a 1080p projector does. */
-const STAGE_H = 832
-/** Nothing above or below the row any more, so it simply sits in the middle. */
-const GRID_Y = (STAGE_H - GRID_SPAN) / 2
+/**
+ * The grid sits high rather than centred, so the row beneath it holds the kept-count
+ * caption and the two verdict stamps without the stage needing to be tall to fit them.
+ * A shorter stage also fills its column at a larger scale, which is what makes the type
+ * on it read from the back of a room.
+ */
+const GRID_Y = 32
 const CY = GRID_Y + GRID_SPAN / 2
+/** Baseline of the kept-count caption, with the stage floor a beat below it. */
+const KEPT_Y = GRID_Y + GRID_SPAN + 40
+const STAGE_H = KEPT_Y + 40
 
 // Cell coordinates are centres: sprites are drawn around their own centre so that scaling
 // a tile grows it from the middle rather than from a corner.
@@ -248,8 +254,10 @@ function renderTiles() {
   for (const s of sprites) {
     const g = s.i === 0 ? 1 : gain.value
     const lift = (b: Block) => b.map(row => row.map(v => 128 + (v - 128) * g))
-    paintBlock(tileCanvases[s.i], lift(before[s.i]))
-    paintBlock(quantTileCanvases[s.i], lift(after[s.i]))
+    // Before quantisation the tile is the pale-blue signal; after, the pale-green survivor.
+    // The crossfade the grid already runs on `quantMix` then animates blue over to green.
+    paintBlock(tileCanvases[s.i], lift(before[s.i]), CONTRAST, PALE_BLUE)
+    paintBlock(quantTileCanvases[s.i], lift(after[s.i]), CONTRAST, PALE_GREEN)
   }
 }
 
@@ -309,17 +317,9 @@ const DONE_LABEL = IMPLODE_AT + 63 * IMPLODE_STAGGER + IMPLODE_DUR + 0.1
 
 const STAGES = ['start', 'grid', 'quantised', 'done'] as const
 /**
- * The four states, named twice.
- *
- * The buttons say pixels / waves / waves / pixels, which makes the round trip obvious at
- * a glance — same picture, two representations, out and back. The two brackets beneath
- * carry the other half of the meaning: the boundary between them is exactly where
- * quantisation throws information away, so everything left of it is still reversible.
- *
- * The stage used to carry an unambiguous restatement of the current state in its top
- * corner, because two of the four labels are the same word. It is gone: the lit button
- * and the picture below it already say where the animation is, and a caption that
- * changes on every step is the kind of thing an audience reads instead of watching.
+ * The four states. The buttons say pixels / waves / waves / pixels, which makes the round
+ * trip obvious at a glance — same picture, two representations, out and back. Two of the
+ * four labels are the same word, so the row is keyed by index rather than name.
  */
 const STAGE_NAMES = ['Pixels', 'Waves', 'Waves', 'Pixels'] as const
 
@@ -380,6 +380,11 @@ function build() {
 
 // --- Drawing ------------------------------------------------------------------
 
+/** The waves-act palette: blue is the original, green the reconstruction — as on the two
+ *  waves slides this one follows. */
+const WAVE_BLUE = '#aecbf5'
+const WAVE_GREEN = '#a7f3d0'
+
 let colours = {
   bg: '#14141f', border: '#2a2a3a', text: '#e0e0e8',
   dim: '#8888a0', accent: '#6c8cff', good: '#4ade80', warn: '#fbbf24',
@@ -406,16 +411,16 @@ function readColours() {
  * reason the arrow runs had to be 90 units wide. A heavy accent chevron says "this way,
  * and this is the move" at a glance, and the slide's title says which move it is.
  */
-function arrow(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number) {
+function arrow(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number, colour: string) {
   const HEAD = 26
-  ctx.strokeStyle = colours.accent
+  ctx.strokeStyle = colour
   ctx.lineWidth = 9
   ctx.lineCap = 'butt'
   ctx.beginPath()
   ctx.moveTo(x1, y)
   ctx.lineTo(x2 - HEAD + 2, y)
   ctx.stroke()
-  ctx.fillStyle = colours.accent
+  ctx.fillStyle = colour
   ctx.beginPath()
   ctx.moveTo(x2, y); ctx.lineTo(x2 - HEAD, y - 15); ctx.lineTo(x2 - HEAD, y + 15)
   ctx.closePath(); ctx.fill()
@@ -446,16 +451,16 @@ function draw(ctx: CanvasRenderingContext2D, scale: number) {
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   const panel = STATION * scale
-  if (block) fillBlock8(ctx, block, SRC_X * scale, (CY - STATION / 2) * scale, panel)
-  if (recon) fillBlock8(ctx, recon, RECON_X * scale, (CY - STATION / 2) * scale, panel)
+  if (block) fillBlock8(ctx, block, SRC_X * scale, (CY - STATION / 2) * scale, panel, CONTRAST, PALE_BLUE)
+  if (recon) fillBlock8(ctx, recon, RECON_X * scale, (CY - STATION / 2) * scale, panel, CONTRAST, PALE_GREEN)
   ctx.restore()
 
   ctx.strokeStyle = colours.border
   ctx.strokeRect(SRC_X + 0.5, CY - STATION / 2 + 0.5, STATION - 1, STATION - 1)
   ctx.strokeRect(RECON_X + 0.5, CY - STATION / 2 + 0.5, STATION - 1, STATION - 1)
 
-  arrow(ctx, SRC_X + STATION + 8, GRID_X - 8, CY)
-  arrow(ctx, GRID_X + GRID_SPAN + 8, RECON_X - 8, CY)
+  arrow(ctx, SRC_X + STATION + 8, GRID_X - 8, CY, WAVE_BLUE)
+  arrow(ctx, GRID_X + GRID_SPAN + 8, RECON_X - 8, CY, WAVE_GREEN)
 
   // The one number the middle of the stage is about: how many of the 64 patterns were
   // still worth sending. It is what the thinning-out phase does, and the picture cannot
@@ -467,10 +472,10 @@ function draw(ctx: CanvasRenderingContext2D, scale: number) {
     ctx.globalAlpha = quantised
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.font = '600 34px Inter, system-ui, sans-serif'
-    ctx.fillStyle = colours.accent
+    ctx.font = '600 38px Inter, system-ui, sans-serif'
+    ctx.fillStyle = WAVE_GREEN
     ctx.fillText(`${keptCount.value} of 64 patterns kept`,
-      GRID_X + GRID_SPAN / 2, GRID_Y + GRID_SPAN + 36)
+      GRID_X + GRID_SPAN / 2, KEPT_Y)
     ctx.globalAlpha = 1
   }
 
@@ -483,16 +488,25 @@ function draw(ctx: CanvasRenderingContext2D, scale: number) {
   let arrived = 1
   for (const s of sprites) arrived = Math.min(arrived, s.merge)
   const t = Math.max(0, Math.min(1, (arrived - 0.9) / 0.1))
+  const fade = t * t * (3 - 2 * t)
+
+  // Two stamps stacked under the reconstruction, arriving with the picture they describe:
+  // the size win, then the lossy/lossless verdict below it. Both are clamped so the wider
+  // wording cannot run off the right edge — the station is only 200 units across.
+  const STAMP = 34
+  const clampX = (w: number) => Math.min(RECON_X + STATION / 2, STAGE_W - MARGIN - w / 2)
+  const stackTop = CY + STATION / 2 + 14
+
+  const verdict = ratioVerdict(keptCount.value > 0 ? 64 / keptCount.value : 1)
+  const vb = stampBounds(ctx, verdict.text, STAMP)
+  drawStamp(ctx, verdict.text, clampX(vb.w), stackTop + vb.h / 2,
+    verdict.better ? colours.good : colours.warn, { size: STAMP, alpha: fade })
+
   const lossy = maxError.value > 0
   const text = lossy ? 'LOSSY' : 'LOSSLESS'
-  // Below the station rather than struck across it: the reconstruction is only 200 units
-  // wide, and a stamp that size would cover the picture it is describing. Centred under
-  // the station, but pulled left if the wider of the two words would run off the stage.
-  const b = stampBounds(ctx, text, 36)
-  drawStamp(ctx, text,
-    Math.min(RECON_X + STATION / 2, STAGE_W - MARGIN - b.w / 2),
-    CY + STATION / 2 + 14 + b.h / 2,
-    lossy ? colours.warn : colours.good, { size: 36, alpha: t * t * (3 - 2 * t) })
+  const b = stampBounds(ctx, text, STAMP)
+  drawStamp(ctx, text, clampX(b.w), stackTop + vb.h + 12 + b.h / 2,
+    lossy ? colours.warn : colours.good, { size: STAMP, alpha: fade })
 
   // Grid tiles, crossfaded between their before- and after-quantisation versions. During
   // the implode these are the same objects, in flight towards the reconstruction.
@@ -500,7 +514,7 @@ function draw(ctx: CanvasRenderingContext2D, scale: number) {
     // Once quantisation has run, mark the cells whose patterns are in play. The marker
     // stays on the cell while the tile leaves it, so the grid still says what went.
     if (s.quantMix > 0.5 && survivors.value[s.i]) {
-      ctx.strokeStyle = colours.accent
+      ctx.strokeStyle = WAVE_GREEN
       ctx.lineWidth = 1.5
       ctx.strokeRect(cellX(s.v) - TILE / 2, cellY(s.u) - TILE / 2, TILE, TILE)
     }
@@ -539,19 +553,18 @@ const blocksPerRow = computed(() => pipeline.allBlocks.value?.y.blocksPerRow ?? 
 const blockCount = computed(() => pipeline.allBlocks.value?.y.blocks.length ?? 0)
 
 function drawPicker() {
-  const ycbcr = pipeline.ycbcr.value
+  const src = pipeline.sourceImageData.value
   const canvas = pickerCanvas.value
-  if (!ycbcr || !canvas) return
-  const { y, width, height } = ycbcr
+  if (!src || !canvas) return
+  const width = src.width
+  const height = src.height
   canvas.width = width
   canvas.height = height
   const ctx = canvas.getContext('2d')!
-  // Same tint and contrast as the panels and tiles, rather than the engine's greyscale.
-  const img = ctx.createImageData(width, height)
-  for (let i = 0; i < width * height; i++) writeShade(img.data, i * 4, y[i])
-  ctx.putImageData(img, 0, 0)
+  // Full colour: the block is chosen off the picture as it looks, not the luma plane.
+  ctx.putImageData(src, 0, 0)
 
-  ctx.strokeStyle = 'rgba(108, 140, 255, 0.18)'
+  ctx.strokeStyle = 'rgba(174, 203, 245, 0.32)'
   ctx.lineWidth = 1
   for (let x = 0; x <= width; x += 8) {
     ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); ctx.stroke()
@@ -569,7 +582,7 @@ function drawPicker() {
   ctx.strokeStyle = '#000'
   ctx.lineWidth = 4
   ctx.strokeRect(bx - 1, by - 1, 10, 10)
-  ctx.strokeStyle = colours.accent
+  ctx.strokeStyle = WAVE_BLUE
   ctx.lineWidth = 2
   ctx.strokeRect(bx - 1, by - 1, 10, 10)
 }
@@ -587,7 +600,7 @@ function pickBlock(e: MouseEvent) {
 
 // --- Wiring -------------------------------------------------------------------
 
-const { canvas: stageCanvas, stage, selectStage, rebuild } = usePhaseStage({
+const { canvas: stageCanvas, stage, progress, selectStage, scrub, rebuild } = usePhaseStage({
   stages: STAGES,
   width: STAGE_W,
   height: STAGE_H,
@@ -602,7 +615,7 @@ function refresh() {
 }
 
 watch([() => pipeline.selectedBlockIndex.value, dequantised], refresh)
-watch(() => pipeline.ycbcr.value, () => nextTick(drawPicker))
+watch(() => pipeline.sourceImageData.value, () => nextTick(drawPicker))
 // Loading an image resets the selection to block 0, which on the pixel-art sample is
 // blank background — the one block with nothing to show.
 watch(() => pipeline.sourceImageData.value, () => pickInterestingBlock())
@@ -625,20 +638,22 @@ onMounted(() => {
           <canvas ref="stageCanvas" />
         </div>
 
-        <div class="controls">
-          <!-- Picking a state plays the animation to it, in whichever direction.
-               Keyed by index, not by name: two of the four labels are the same word. -->
-          <div class="stages">
-            <div class="stage-row">
+        <div class="stage-controls">
+          <!-- Slider and phase buttons drive one playhead, as on the other exploration
+               slides. Keyed by index: two of the four labels are the same word. -->
+          <div class="stage-picker">
+            <input
+              class="stage-scrub" type="range" min="0" max="1000" step="1"
+              aria-label="Scrub the animation"
+              :value="Math.round(progress * 1000)"
+              @input="scrub(Number(($event.target as HTMLInputElement).value) / 1000)"
+            />
+            <div class="seg-group">
               <button
                 v-for="(name, i) in STAGE_NAMES" :key="i"
-                class="stage-btn" :class="{ on: stage === i }"
+                :class="{ on: stage === i }"
                 @click="selectStage(i)"
               >{{ name }}</button>
-            </div>
-            <div class="brackets">
-              <span class="bracket">original</span>
-              <span class="bracket">compressed</span>
             </div>
           </div>
         </div>
@@ -704,85 +719,4 @@ onMounted(() => {
   border-radius: 6px;
   border: 1px solid var(--border);
 }
-
-.controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.45rem 1.2rem;
-  font-size: 0.66rem;
-  color: var(--text-secondary);
-}
-
-/* Nothing in this row may wrap mid-label — a squeezed flex item shreds into one word
-   per line rather than simply moving to the next row. */
-.controls > * {
-  white-space: nowrap;
-}
-
-/* Segmented group: one control with four states, rather than four separate buttons. */
-.stages {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-/* Equal columns so the two brackets below line up with two buttons each — the labels
-   are different lengths and would otherwise drift out of register. */
-.stage-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.brackets {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.bracket {
-  position: relative;
-  padding-top: 0.42rem;
-  text-align: center;
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
-
-/* A downward brace under each pair: ticks rising towards the buttons it groups. */
-.bracket::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 12%;
-  right: 12%;
-  height: 0.26rem;
-  /* --border is almost invisible at this size; tie the brace to the label instead. */
-  border: 1px solid currentColor;
-  border-top: none;
-  opacity: 0.55;
-}
-
-.stage-btn {
-  padding: 0.22rem 0.7rem;
-  font-size: 0.66rem;
-  border-radius: 0;
-  border-right-width: 0;
-}
-
-.stage-btn:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.stage-btn:last-child {
-  border-radius: 0 4px 4px 0;
-  border-right-width: 1px;
-}
-
-.stage-btn.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
 </style>
