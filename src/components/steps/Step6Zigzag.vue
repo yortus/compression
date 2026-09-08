@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { ZIGZAG_ORDER } from '../../engine/jpeg/zigzag'
 import { compareScanOrders, compareScanOrdersWholeImage, flattenRaster } from '../../engine/jpeg/stages'
@@ -15,11 +14,11 @@ import gsap from 'gsap'
  *
  * "Zigzag produces fewer RLE pairs" is false: a pair is emitted per non-zero coefficient
  * plus an end-of-block marker, and reordering cannot change how many non-zeros there are.
- * Both strips below really do show the same pair count, and the slide now says so out
- * loud, because that is the more interesting fact. What the reordering changes is the run
- * *lengths* between the non-zeros — scattered fives and sixes in row order, almost all
- * zeros along the diagonal — which collapses the alphabet the entropy coder has to
- * describe. So the saving is drawn in bits after Huffman, where it actually lives.
+ * Both strips below really do show the same pair count, because that is the more
+ * interesting fact. What the reordering changes is the run *lengths* between the non-zeros
+ * — scattered fives and sixes in row order, almost all zeros along the diagonal — which
+ * collapses the alphabet the entropy coder has to describe. So the saving lives in bits
+ * after Huffman, which is what the stat prices.
  */
 
 const pipeline = inject(PIPELINE_KEY)!
@@ -87,11 +86,6 @@ function runs(flat: readonly number[]) {
     i += n
   }
   return out
-}
-
-/** How many gaps are non-zero — the count of run lengths the coder has to spell out. */
-function nonZeroGaps(lengths: number[] | undefined) {
-  return (lengths ?? []).filter(n => n > 0).length
 }
 
 /** Runs clipped to the visible half, so the shading lines up with the cells under it. */
@@ -252,25 +246,6 @@ onUnmounted(stop)
           </div>
         </div>
       </div>
-
-      <Fragment :index="1">
-        <p class="verdict" v-if="wholeImage && comparison">
-          Identical numbers, identical encoder — and, note, <strong>identical pair counts</strong>.
-          Reordering cannot change how many non-zero coefficients there are, so it cannot change how
-          many pairs come out. What it changes is the gaps <em>between</em> them: on this block
-          <strong>{{ nonZeroGaps(comparison.rasterRunLengths) }}</strong> of the
-          {{ comparison.rasterRunLengths.length }} gaps are non-zero in row order, against
-          <strong class="good">{{ nonZeroGaps(comparison.zigzagRunLengths) }}</strong> along the
-          diagonal. Every distinct gap length is another symbol the coder has to describe, so a
-          stream of zeros is far cheaper than a scatter of fives and thirteens. Across the whole
-          image that is <strong>{{ (wholeImage.rasterSymbolBits / 8 / 1024).toFixed(0) }} KB</strong>
-          in row order against
-          <strong class="good">{{ (wholeImage.zigzagSymbolBits / 8 / 1024).toFixed(0) }} KB</strong>
-          in zigzag order —
-          {{ ((1 - wholeImage.zigzagSymbolBits / wholeImage.rasterSymbolBits) * 100).toFixed(0) }}%,
-          bought with no arithmetic at all.
-        </p>
-      </Fragment>
     </div>
   </SlideLayout>
 </template>
@@ -399,14 +374,5 @@ onUnmounted(stop)
 
 .good {
   color: var(--positive);
-}
-
-.verdict {
-  font-size: 0.66rem;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--text-secondary);
-  max-width: 56rem;
-  margin: 0 auto;
 }
 </style>

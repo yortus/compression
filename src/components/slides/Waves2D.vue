@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import { useStat } from '../../stats/useStats'
 import {
   GRID, SHAPE_PRESETS,
-  dct2d, partialReconstruct2d, energyRank2d, rmse2d,
+  dct2d, partialReconstruct2d, rmse2d,
 } from '../../engine/signal2d'
 import { drawHeightfield } from '../../rendering/heightfield'
 
@@ -27,7 +26,6 @@ const activePreset = ref<string | null>(SHAPE_PRESETS[0].name)
 const coeffs = computed(() => dct2d(grid.value))
 const sum = computed(() => partialReconstruct2d(coeffs.value, waves.value))
 const error = computed(() => rmse2d(grid.value, sum.value))
-const enough = computed(() => energyRank2d(coeffs.value, 0.99))
 
 useStat('waves-2d', () => ({
   label: `${waves.value} of ${COUNT} patterns`,
@@ -184,15 +182,6 @@ onUnmounted(onUp)
         </label>
         <span class="err" :class="{ tiny: error < 0.02 }">error {{ (error * 100).toFixed(1) }}%</span>
       </div>
-
-      <Fragment :index="1">
-        <p class="verdict">
-          Exactly the one-dimensional story, one axis richer: a 2-D shape is a sum of fixed
-          cosine <em>patterns</em>, and for this one <strong>{{ enough }} of {{ COUNT }}</strong>
-          hold 99% of the energy. Keep fewer and the surface blurs; a hard diagonal or a checker
-          needs nearly all of them. This is precisely what JPEG does to every 8×8 block.
-        </p>
-      </Fragment>
     </div>
   </SlideLayout>
 </template>
@@ -306,14 +295,5 @@ figcaption.green { color: #a7f3d0; }
 
 .err.tiny {
   color: var(--positive);
-}
-
-.verdict {
-  font-size: 0.9rem;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--text-secondary);
-  max-width: 54rem;
-  margin: 0 auto;
 }
 </style>

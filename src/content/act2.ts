@@ -18,6 +18,49 @@ import type { ProseRegistry } from './types'
  * first slide runs into that wall; the second is built to exploit it.
  */
 export const ACT2_PROSE: ProseRegistry = {
+  'colour-spaces': {
+    learner:
+      'A colour is three numbers however you slice it — but you get to choose the three axes. ' +
+      'On the left is the RGB cube: fix blue with the slider and the square shows every colour ' +
+      'you can mix from red and green at that blue level. On the right is the same space in ' +
+      'different coordinates — brightness on the slider, and the square is the two colour-difference ' +
+      'axes Cb and Cr. Slide the RGB blue and the whole square changes character, because every one ' +
+      'of red, green and blue is partly brightness. Slide the YCbCr luma and the square keeps its ' +
+      'colours and only lightens or darkens, because brightness has been lifted onto its own axis. ' +
+      'That is the entire reason to switch axes before compressing: in RGB there is no plane you can ' +
+      'spend, while in YCbCr two of the three axes are pure colour you can afford to store coarsely.',
+    more: {
+      title: 'Why colour is two axes plus one',
+      blocks: [
+        {
+          kind: 'para',
+          text:
+            'Both squares are 2-D slices of the same 3-D space; the slider is the third axis. ' +
+            'The RGB and YCbCr coordinates hold exactly the same colours — the transform between ' +
+            'them is a fixed, reversible bit of arithmetic — so nothing is added or thrown away by ' +
+            'reframing. What changes is where brightness lives. In RGB it is smeared across all ' +
+            'three axes (roughly 59% green, 30% red, 11% blue); in YCbCr it is Y alone, and Cb and ' +
+            'Cr carry only how far the colour leans blue and how far it leans red.',
+        },
+        {
+          kind: 'para',
+          text:
+            'That is also why only two colour axes are needed rather than three. Once brightness ' +
+            'is a fixed weighted mix of red, green and blue, knowing the brightness plus two of the ' +
+            'three colour-differences pins down the third by arithmetic — the green-difference is ' +
+            'redundant. Colour, with brightness taken out, is a two-dimensional thing.',
+        },
+        {
+          kind: 'para',
+          text:
+            'The flat patches in the corners of the YCbCr square are Cb/Cr pairs that would fall ' +
+            'outside the RGB cube at that brightness: there is no real colour there, so the ' +
+            'conversion clamps them to the nearest one. Slide the luma and the coloured region ' +
+            'shifts and changes shape, which is the RGB cube being sliced at a different height.',
+        },
+      ],
+    },
+  },
   'rgb-subsample': {
     learner:
       'The obvious way to spend fewer bytes on colour is to store the colour planes at lower ' +

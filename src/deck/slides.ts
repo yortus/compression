@@ -5,6 +5,7 @@ import Step9Summary from '../components/steps/Step9Summary.vue'
 
 import RleBitmap from '../components/slides/RleBitmap.vue'
 
+import ColourSpaces from '../components/slides/ColourSpaces.vue'
 import RgbSubsample from '../components/slides/RgbSubsample.vue'
 import ChromaSubsample from '../components/slides/ChromaSubsample.vue'
 
@@ -128,9 +129,17 @@ export const SLIDES: SlideDef[] = [
     fragments: 4,
   },
   {
+    id: 'colour-spaces',
+    act: 'colour',
+    title: 'Colour Spaces',
+    subtitle: 'Three numbers, but you choose the three axes',
+    component: ColourSpaces,
+    tag: 'core',
+  },
+  {
     id: 'rgb-subsample',
     act: 'colour',
-    title: 'Throwing Colour Away I',
+    title: 'RGB',
     subtitle: 'Three sliders, and every plane still holds the picture',
     component: RgbSubsample,
     tag: 'core',
@@ -139,7 +148,7 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'chroma-subsample',
     act: 'colour',
-    title: 'Throwing Colour Away II',
+    title: 'YCbCr',
     subtitle: 'Shrink the two planes you were not reading',
     component: ChromaSubsample,
     tag: 'core',
@@ -148,25 +157,23 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'waves-intro',
     act: 'fourier',
-    title: 'Everything Is Waves',
+    title: 'Waves in 1D',
     subtitle: 'Any signal is a sum of fixed cosines',
     component: WavesIntro,
     tag: 'core',
-    fragments: 2,
   },
   {
     id: 'waves-2d',
     act: 'fourier',
-    title: 'The Same, in Two Dimensions',
+    title: 'Waves in 2D',
     subtitle: 'A shape is a sum of 2-D cosine patterns',
     component: Waves2D,
     tag: 'core',
-    fragments: 2,
   },
   {
     id: 'basis-64',
     act: 'fourier',
-    title: 'The 64 Patterns',
+    title: 'DCT',
     subtitle: 'Apart, thinned out, and back together',
     component: Basis64,
     tag: 'core',
@@ -178,12 +185,11 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'zigzag',
     act: 'fourier',
-    title: 'Zigzag Scan',
+    title: 'Zigzag',
     subtitle: 'Same numbers, read in a different order',
     component: Step6Zigzag,
     tag: 'core',
     controls: ['image', 'quality', 'block'],
-    fragments: 2,
   },
   {
     id: 'jpeg-pipeline',
@@ -193,7 +199,6 @@ export const SLIDES: SlideDef[] = [
     component: JpegPipeline,
     tag: 'core',
     controls: ['image', 'quality', 'subsampling'],
-    fragments: 2,
   },
   {
     id: 'jpeg-result',

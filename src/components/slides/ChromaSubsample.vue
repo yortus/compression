@@ -4,6 +4,7 @@ import SlideLayout from '../../deck/SlideLayout.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { ycbcrPlaneToImageData, ycbcrToRgb, type YcbcrChannel } from '../../engine/jpeg/colorspace'
 import { useStat } from '../../stats/useStats'
+import { ratioVerdict } from '../../rendering/stamp'
 
 /**
  * The act's payoff: two of the three planes get thrown away at reduced resolution.
@@ -117,9 +118,10 @@ const sizes = computed(() => {
   }
 })
 
-const savedPercent = computed(() => {
-  const s = sizes.value
-  return s ? (1 - s.total / s.before) * 100 : 0
+/** Byte ratio as a verdict, worded once in `ratioVerdict` like every other slide. */
+const verdict = computed(() => {
+  const z = sizes.value
+  return z ? ratioVerdict(z.before / z.total) : null
 })
 
 useStat('chroma-subsample', () => {
@@ -326,20 +328,16 @@ function kb(samples: number) {
           </div>
         </div>
 
-        <div class="tally">
-          <span class="arrow">{{ kb(sizes?.before ?? 0) }} → {{ kb(sizes?.total ?? 0) }}</span>
-          <span class="saved" :class="{ none: savedPercent === 0 }">
-            {{ savedPercent === 0 ? 'nothing discarded' : `−${savedPercent.toFixed(0)}%` }}
-          </span>
-        </div>
       </div>
 
-      <!-- The reconstruction, always shown 1:1 at native size. -->
+      <!-- The reconstruction, always shown 1:1 at native size, with the size verdict beside the
+           A/B toggle so the three sit in one row under the image. -->
       <div class="right">
         <canvas ref="compareCanvas" class="compare" v-loupe />
         <div class="ab">
           <button :class="{ active: !showOriginal }" @click="showOriginal = false">Compressed</button>
           <button :class="{ active: showOriginal }" @click="showOriginal = true">Original</button>
+          <span v-if="verdict" class="ratio-badge" :class="verdict.better ? 'smaller' : 'bigger'">{{ verdict.text }}</span>
         </div>
       </div>
 
@@ -505,6 +503,7 @@ function kb(samples: number) {
 
 .ab {
   display: flex;
+  align-items: center;
   gap: 0.4rem;
 }
 
@@ -514,33 +513,23 @@ function kb(samples: number) {
   border-radius: 4px;
 }
 
-.tally {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  /* Fixed so swapping "nothing discarded" for a −N% figure — different length and size —
-     cannot change the row height and nudge the rest of the column. */
-  height: 1.9rem;
+/* A third peer beside the two toggle buttons: same footprint, the verdict's own colour. */
+.ratio-badge {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   white-space: nowrap;
+  border-radius: 4px;
+  border: 2px solid var(--positive);
+  color: var(--positive);
   font-variant-numeric: tabular-nums;
 }
 
-.arrow {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
-.saved {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--positive);
-}
-
-.saved.none {
-  font-size: 0.9rem;
-  font-weight: 400;
-  color: var(--text-secondary);
+.ratio-badge.bigger {
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 /* A supporting aside pinned to the slide's bottom-left: why colour is the plane to spend —

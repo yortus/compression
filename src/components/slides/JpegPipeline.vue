@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { inject, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
-import { STATS_KEY, useStat } from '../../stats/useStats'
+import { useStat } from '../../stats/useStats'
 import { formatBytes } from '../../stats/types'
 import { measureStages } from '../../engine/jpeg/stages'
 import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
@@ -12,19 +11,13 @@ import { compareImages } from '../../engine/compare'
 /**
  * The whole chain, one row per stage, measured on the image currently loaded.
  *
- * Everything the deck has claimed about JPEG lands here as arithmetic, and the
- * commentary underneath is read off the rows rather than written in advance — see the
- * note above `biggest`. The final row is the same `estimateEncodedBits` that
- * `jpeg-result` reports, and the headline ratio divides it into the same 24-bits-a-pixel
- * raw figure, so the finale's total is the number the audience has been watching all
- * along rather than a fresh one.
- *
- * The Codes-act scoreboard is picked up where it exists: whatever the simple techniques
- * actually managed on this image, as measured when those slides were on screen.
+ * Everything the deck has claimed about JPEG lands here as arithmetic. The final row is
+ * the same `estimateEncodedBits` that `jpeg-result` reports, and the headline ratio
+ * divides it into the same 24-bits-a-pixel raw figure, so the finale's total is the
+ * number the audience has been watching all along rather than a fresh one.
  */
 
 const pipeline = inject(PIPELINE_KEY)!
-const stats = inject(STATS_KEY)!
 
 const stages = computed(() => {
   const cache = pipeline.cache.value
@@ -63,21 +56,6 @@ useStat('jpeg-pipeline', () => {
   }
 })
 
-/** What the simple techniques managed on this image, if those slides have been visited. */
-const EARLIER = [
-  { id: 'rle-bitmap', label: 'Run-length encoding' },
-  { id: 'huffman-codes', label: 'Huffman over text' },
-]
-
-const earlier = computed(() =>
-  EARLIER.map(e => {
-    const sample = stats.scoreboard.value.get(e.id)
-    if (!sample) return { ...e, ratio: null }
-    return { ...e, ratio: sample.rawBits / (sample.encodedBits + sample.overheadBits) }
-  }))
-
-const anyEarlier = computed(() => earlier.value.some(e => e.ratio !== null))
-
 const finalRatio = computed(() => (finalBits.value > 0 ? rawBits.value / finalBits.value : 0))
 
 function verdictOf(delta: number) {
@@ -86,23 +64,6 @@ function verdictOf(delta: number) {
   return 'flat'
 }
 
-/**
- * The commentary is read off the measurements rather than written in advance.
- *
- * An earlier version of this slide asserted that the DCT row costs bits, on the
- * reasoning that a rotation cannot destroy information. Measured, it saves a great
- * deal — order-0 entropy is not preserved by a rotation, and decorrelating the samples
- * is exactly what makes a memoryless coder do better. Which is the argument for reading
- * the numbers off the page instead of deciding what they ought to say.
- */
-const biggest = computed(() => {
-  const rows = stages.value
-  if (!rows) return null
-  return rows.slice(1).reduce((best, r) => (r.delta < best.delta ? r : best))
-})
-
-const costly = computed(() => stages.value?.slice(1).filter(r => r.delta > 0.01) ?? [])
-const dctRow = computed(() => stages.value?.find(r => r.stage.includes('DCT')) ?? null)
 const lossySteps = computed(() => stages.value?.filter(r => r.lossy) ?? [])
 const transformSteps = computed(() => stages.value?.length ?? 0)
 </script>
@@ -151,38 +112,6 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
             and only {{ lossySteps.length }} of those {{ transformSteps }} steps threw anything away.
           </span>
         </div>
-
-        <Fragment :index="1">
-          <div class="payoff">
-            <p>
-              The biggest single drop is <strong>{{ biggest?.stage }}</strong>
-              ({{ ((biggest?.delta ?? 0) * 100).toFixed(0) }}%). The row worth arguing about is the
-              DCT, at {{ ((dctRow?.delta ?? 0) * 100).toFixed(0) }}%: it discards nothing whatsoever
-              and the file still shrinks, because a coder with no memory does far better on
-              decorrelated coefficients than on neighbouring pixels. That is what transform coding
-              <em>is</em>, and it is what pays for every row below it.
-              <template v-if="costly.length">
-                {{ costly.length === 1 ? 'One stage' : `${costly.length} stages` }} actually
-                <strong class="costs">cost</strong> bits here
-                ({{ costly.map(c => c.stage).join(', ') }}) — repaid immediately by what follows.
-              </template>
-              Quantisation is where the loss is spent; zigzag and RLE only collect the zeros that
-              quantisation manufactured. <em>No single stage here is the compressor.</em>
-            </p>
-            <div v-if="anyEarlier" class="earlier">
-              <span class="earlier-head">On this same image, from earlier acts:</span>
-              <span v-for="e in earlier" :key="e.id" class="earlier-row">
-                {{ e.label }}
-                <strong v-if="e.ratio !== null" :class="{ bad: e.ratio < 1 }">{{ e.ratio.toFixed(2) }}:1</strong>
-                <em v-else>not measured yet</em>
-              </span>
-            </div>
-            <p v-else class="earlier-hint">
-              Walk back through the earlier acts and those techniques' scores on this image appear here for
-              comparison.
-            </p>
-          </div>
-        </Fragment>
       </template>
     </div>
   </SlideLayout>
@@ -312,60 +241,5 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 .detail {
   font-size: 0.62rem;
   color: var(--text-secondary);
-}
-
-.payoff {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.payoff p {
-  font-size: 0.63rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  max-width: 56rem;
-  text-align: center;
-}
-
-.costs {
-  color: var(--warning);
-}
-
-.earlier {
-  display: flex;
-  gap: 1rem;
-  align-items: baseline;
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.earlier-head {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.62rem;
-}
-
-.earlier-row strong {
-  color: var(--positive);
-  font-variant-numeric: tabular-nums;
-  margin-left: 0.25rem;
-}
-
-.earlier-row strong.bad {
-  color: var(--negative);
-}
-
-.earlier-row em {
-  opacity: 0.6;
-  margin-left: 0.25rem;
-}
-
-.earlier-hint {
-  font-style: italic;
-  opacity: 0.8;
 }
 </style>

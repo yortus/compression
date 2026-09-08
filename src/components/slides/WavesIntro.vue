@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import SignalPad from './SignalPad.vue'
 import { useStat } from '../../stats/useStats'
 import {
@@ -11,7 +10,6 @@ import {
   component,
   partialReconstruct,
   rmse,
-  energyRank,
 } from '../../engine/signal'
 
 /**
@@ -29,9 +27,6 @@ const activePreset = ref<string | null>(SIGNAL_PRESETS[0].name)
 const coeffs = computed(() => dct1d(signal.value))
 const sum = computed(() => partialReconstruct(coeffs.value, waves.value))
 const error = computed(() => rmse(signal.value, sum.value))
-
-/** How many waves it takes to hold 99% of the signal's energy. */
-const enough = computed(() => energyRank(coeffs.value, 0.99))
 
 // The waves currently being summed, each centred on the pad's midline so they read as
 // oscillations rather than sinking to the baseline the way a raw signed component would.
@@ -114,23 +109,6 @@ function onDraw(next: number[]) {
         </label>
         <span class="err" :class="{ tiny: error < 0.02 }">error {{ (error * 100).toFixed(1) }}%</span>
       </div>
-
-      <Fragment :index="1">
-        <p class="verdict">
-          Any signal at all is a sum of these fixed waves — the only thing that changes from
-          signal to signal is <em>how much</em> of each. For this one,
-          <strong>{{ enough }} waves</strong> hold 99% of the energy, and the other
-          {{ SIGNAL_LENGTH - enough }} are rounding.
-          <template v-if="enough > SIGNAL_LENGTH / 2">
-            That is the awkward case: a sharp edge or a spike needs nearly all of them, because a
-            corner is built out of every frequency at once.
-          </template>
-          <template v-else>
-            Nothing has been thrown away yet, and nothing saved — but the numbers are now sorted by
-            how much they matter, which is a different thing from being sorted by position.
-          </template>
-        </p>
-      </Fragment>
     </div>
   </SlideLayout>
 </template>
@@ -241,14 +219,5 @@ function onDraw(next: number[]) {
 
 .err.tiny {
   color: var(--positive);
-}
-
-.verdict {
-  font-size: 0.9rem;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--text-secondary);
-  max-width: 54rem;
-  margin: 0 auto;
 }
 </style>
