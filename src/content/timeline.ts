@@ -27,7 +27,7 @@ export const TIMELINE: TimelineEntry[] = [
   {
     year: 1948,
     who: 'Claude Shannon',
-    what: 'Information has a measurable quantity — entropy sets the floor',
+    what: 'Compression and entropy are deeply connected',
     act: 'framing',
     keystone: true,
   },
