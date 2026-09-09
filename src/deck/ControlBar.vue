@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, ref, computed, onMounted } from 'vue'
+import { inject, ref, onMounted } from 'vue'
 import { useDeck } from './useDeck'
 import ImagePicker from '../components/ImagePicker.vue'
 import { PIPELINE_KEY } from '../composables/useJpegPipeline'
@@ -14,14 +14,6 @@ const pipeline = inject(PIPELINE_KEY)!
 
 const picker = ref<InstanceType<typeof ImagePicker>>()
 const MODES: SubsamplingMode[] = ['4:4:4', '4:2:2', '4:2:0']
-
-const blockCount = computed(() => pipeline.allBlocks.value?.y.blocks.length ?? 0)
-
-function stepBlock(delta: number) {
-  if (!blockCount.value) return
-  const next = pipeline.selectedBlockIndex.value + delta
-  pipeline.selectedBlockIndex.value = Math.max(0, Math.min(blockCount.value - 1, next))
-}
 
 onMounted(() => {
   if (!pipeline.sourceImageData.value) picker.value?.loadDefault()
@@ -58,13 +50,6 @@ onMounted(() => {
         :disabled="!deck.controlEnabled('subsampling')"
         @click="pipeline.subsamplingMode.value = m"
       >{{ m }}</button>
-    </div>
-
-    <div class="control" :class="{ off: !deck.controlEnabled('block') }">
-      <span class="key">Block</span>
-      <button class="chip" :disabled="!deck.controlEnabled('block')" @click="stepBlock(-1)">−</button>
-      <span class="value">{{ pipeline.selectedBlockIndex.value }}<template v-if="blockCount">/{{ blockCount - 1 }}</template></span>
-      <button class="chip" :disabled="!deck.controlEnabled('block')" @click="stepBlock(1)">+</button>
     </div>
   </div>
 </template>

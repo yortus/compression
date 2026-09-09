@@ -30,6 +30,26 @@ const stages = computed(() => {
 const rawBits = computed(() => stages.value?.[0].bits ?? 0)
 const finalBits = computed(() => stages.value?.[stages.value.length - 1].bits ?? 0)
 
+/**
+ * Ballpark baseline-JPEG header cost, in bytes — a fixed toll the cascade above ignores.
+ * The rows price the pixel data only; a real file also ships the tables and markers a
+ * decoder needs before it can read a single coefficient, and they cost the same whatever
+ * the image is:
+ *   DQT   ~134 B  two 8-bit quantisation tables (luma + chroma)
+ *   DHT   ~420 B  four standard Huffman tables (DC/AC × luma/chroma)
+ *   misc   ~55 B  SOI, JFIF APP0, SOF0, SOS, EOI markers
+ */
+const HEADER_BYTES = 134 + 420 + 55
+const headerBits = HEADER_BYTES * 8
+
+const withHeaderBits = computed(() => finalBits.value + headerBits)
+
+/** The header as a fraction added on top of the coded pixel data. */
+const headerDeltaText = computed(() => {
+  const pct = finalBits.value > 0 ? (headerBits / finalBits.value) * 100 : 0
+  return pct < 1 ? '<1%' : `+${Math.round(pct)}%`
+})
+
 /** Bar width relative to the widest row, which is not always the first. */
 const widest = computed(() => Math.max(...(stages.value?.map(s => s.bits) ?? [1])))
 
@@ -98,6 +118,18 @@ function verdictOf(delta: number) {
               <template v-else>{{ s.delta > 0 ? '+' : '' }}{{ (s.delta * 100).toFixed(0) }}%</template>
             </span>
           </div>
+
+          <div class="row header-row">
+            <span class="stage">+ JPEG header</span>
+
+            <span class="track">
+              <span class="fill costs" :style="{ width: (withHeaderBits / widest) * 100 + '%' }" />
+            </span>
+
+            <span class="size">{{ formatBytes(withHeaderBits) }}</span>
+
+            <span class="delta costs">{{ headerDeltaText }}</span>
+          </div>
         </div>
 
         <div class="total">
@@ -112,11 +144,12 @@ function verdictOf(delta: number) {
 .pipe {
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
+  gap: 1.25rem;
   width: 100%;
   height: 100%;
   min-height: 0;
   justify-content: center;
+  padding: 0 3.5rem;
 }
 
 .loading {
@@ -129,21 +162,27 @@ function verdictOf(delta: number) {
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.36rem;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 13rem minmax(0, 1fr) 6rem 5rem;
+  grid-template-columns: 11.7rem minmax(0, 1fr) 5.4rem 4.5rem;
   align-items: center;
-  gap: 0.9rem;
-  font-size: 0.95rem;
-  padding: 0.3rem 0.5rem;
+  gap: 0.8rem;
+  font-size: 0.86rem;
+  padding: 0.27rem 0.45rem;
   border-radius: 5px;
 }
 
 .row.final {
   background: var(--bg-elevated);
+}
+
+/* The header is a fixed toll added after the pipeline, not one of its stages. */
+.row.header-row {
+  margin-top: 0.15rem;
+  border-top: 1px dashed var(--border);
 }
 
 .stage {
@@ -166,7 +205,7 @@ function verdictOf(delta: number) {
 }
 
 .track {
-  height: 1.15rem;
+  height: 1.05rem;
   background: var(--bg-elevated);
   border-radius: 3px;
   overflow: hidden;
@@ -205,11 +244,11 @@ function verdictOf(delta: number) {
 }
 
 .badge {
-  font-size: 2.4rem;
+  font-size: 2.15rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 0.35rem 1.1rem;
+  padding: 0.32rem 1rem;
   border: 3px solid;
   border-radius: 7px;
   font-variant-numeric: tabular-nums;

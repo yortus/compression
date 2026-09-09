@@ -55,7 +55,7 @@ const entries = computed(() =>
   position: relative;
   list-style: none;
   width: 100%;
-  max-width: 46rem;
+  max-width: 52rem;
   padding-left: 0.9rem;
   min-height: 0;
   overflow-y: auto;
@@ -75,11 +75,11 @@ const entries = computed(() =>
 .entry {
   position: relative;
   display: grid;
-  grid-template-columns: 3.2rem 9.5rem 1fr;
-  gap: 0.7rem;
+  grid-template-columns: 3.8rem 11rem 1fr;
+  gap: 0.8rem;
   align-items: baseline;
   line-height: 1.3;
-  padding: 0.12rem 0 0.12rem 0.7rem;
+  padding: 0.2rem 0 0.2rem 0.7rem;
   border-radius: 5px;
 }
 
@@ -103,7 +103,7 @@ const entries = computed(() =>
 }
 
 .year {
-  font-size: 0.72rem;
+  font-size: 0.86rem;
   font-weight: 800;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
@@ -114,12 +114,12 @@ const entries = computed(() =>
 }
 
 .who {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
 .what {
-  font-size: 0.62rem;
+  font-size: 0.74rem;
   color: var(--text-secondary);
   line-height: 1.35;
 }
@@ -128,7 +128,7 @@ const entries = computed(() =>
 .gap {
   grid-column: 1 / -1;
   margin: 0.05rem 0 0.1rem;
-  font-size: 0.62rem;
+  font-size: 0.74rem;
   font-style: italic;
   letter-spacing: 0.04em;
   color: var(--text-secondary);

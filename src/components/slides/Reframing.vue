@@ -1,61 +1,32 @@
 <script setup lang="ts">
-import { inject, computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
-import { STATS_KEY } from '../../stats/useStats'
-import { derive } from '../../stats/types'
 
 /**
- * The thesis, paid off. Each row is a reframing the audience watched happen, with the
- * live number from the slide that produced it wherever the deck has recorded one.
+ * The thesis, paid off. Each row is a reframing the audience watched happen — the same
+ * simple encoder, pointed at data that had been reshaped until it worked.
  */
-const stats = inject(STATS_KEY)!
-
 const REFRAMES = [
-  { from: 'Colours', to: 'Indices', enabled: 'Neighbours finally repeat, so runs exist to collapse', slide: 'rle-palette' },
-  { from: 'Interleaved bytes', to: 'Colour planes', enabled: 'Nothing discarded — only the visiting order changed', slide: 'rle-planes' },
-  { from: 'Red, green, blue', to: 'Brightness and colour', enabled: 'The two can now be treated differently, because we see them differently', slide: 'chroma-subsample' },
-  { from: 'Pixels', to: 'Frequencies', enabled: 'Energy gathers into a few coefficients; the rest can go', slide: 'quantisation' },
-  { from: 'Raster order', to: 'Zigzag order', enabled: 'The zeros end up adjacent, which is the only reason RLE pays', slide: 'zigzag' },
+  { from: 'Colours', to: 'Indices', enabled: 'Neighbours finally repeat, so runs exist to collapse' },
+  { from: 'Red, green, blue', to: 'Brightness and colour', enabled: 'The two can be treated differently, because we see them differently' },
+  { from: 'Pixels', to: 'Frequencies', enabled: 'Energy gathers into a few coefficients; the rest can go' },
 ]
-
-const rows = computed(() =>
-  REFRAMES.map(r => {
-    const sample = stats.scoreboard.value.get(r.slide)
-    return { ...r, ratio: sample ? derive(sample).ratio : null }
-  }))
 </script>
 
 <template>
   <SlideLayout column>
     <div class="reframing">
-      <p class="lead">Every win in this talk came from the same move.</p>
+      <p class="lead">Different perspectives create new possibilities</p>
 
-      <div class="rows">
-        <div v-for="r in rows" :key="r.slide" class="row">
-          <span class="from">{{ r.from }}</span>
-          <span class="arrow">→</span>
-          <span class="to">{{ r.to }}</span>
+      <div class="pane">
+        <div v-for="r in REFRAMES" :key="r.to" class="row">
+          <div class="headline">
+            <span class="from">{{ r.from }}</span>
+            <span class="arrow">→</span>
+            <span class="to">{{ r.to }}</span>
+          </div>
           <span class="enabled">{{ r.enabled }}</span>
-          <span class="ratio" :class="{ dim: r.ratio === null }">
-            {{ r.ratio === null ? '—' : r.ratio.toFixed(1) + ':1' }}
-          </span>
         </div>
       </div>
-
-      <Fragment :index="1">
-        <div class="thesis">
-          <p>
-            Not one of those made the encoder cleverer. Run-length encoding on the last slide is
-            the same run-length encoding from the first. What changed every time was
-            <strong>what the numbers meant</strong> — and a simple encoder, pointed at data in the
-            right shape, beat a clever one pointed at data in the wrong shape.
-          </p>
-          <p class="beat">
-            Which is not really a fact about compression.
-          </p>
-        </div>
-      </Fragment>
     </div>
   </SlideLayout>
 </template>
@@ -66,84 +37,68 @@ const rows = computed(() =>
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.1rem;
+  gap: 1.6rem;
   width: 100%;
   height: 100%;
 }
 
 .lead {
-  font-size: 0.85rem;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--text);
+  text-align: center;
+  max-width: 40rem;
 }
 
-.rows {
+.pane {
+  width: fit-content;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  width: 100%;
-  max-width: 56rem;
+  padding: 0.3rem 1.5rem;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--positive);
+  border-radius: 10px;
+  background: var(--bg-surface);
 }
 
 .row {
-  display: grid;
-  grid-template-columns: 9rem 1rem 11rem 1fr 4rem;
-  gap: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+/* From → To reads big; the reason sits under it as support, so a narrow screen
+   stacks into one column instead of overflowing a fixed grid. */
+.headline {
+  display: flex;
   align-items: baseline;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  font-size: 0.68rem;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 1.05rem;
 }
 
 .from {
   color: var(--text-secondary);
-  text-align: right;
 }
 
 .arrow {
   color: var(--accent);
-  text-align: center;
 }
 
 .to {
   font-weight: 700;
+  color: var(--text);
 }
 
 .enabled {
   color: var(--text-secondary);
-  font-size: 0.62rem;
-  line-height: 1.35;
-}
-
-.ratio {
-  text-align: right;
-  font-weight: 700;
-  color: var(--positive);
-  font-variant-numeric: tabular-nums;
-}
-
-.ratio.dim {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-
-.thesis {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-width: 48rem;
-  text-align: center;
-}
-
-.thesis p {
-  font-size: 0.75rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-}
-
-.beat {
-  font-size: 0.95rem !important;
-  font-weight: 600;
-  color: var(--accent) !important;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 </style>

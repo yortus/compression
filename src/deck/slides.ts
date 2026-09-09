@@ -22,9 +22,9 @@ import Waves2D from '../components/slides/Waves2D.vue'
 import Basis64 from '../components/slides/Basis64.vue'
 import JpegPipeline from '../components/slides/JpegPipeline.vue'
 
-import BrittleVsRobust from '../components/slides/BrittleVsRobust.vue'
 import Reframing from '../components/slides/Reframing.vue'
-import PointsSlide from '../components/slides/PointsSlide.vue'
+import BulletSlide from '../components/slides/BulletSlide.vue'
+import ThankYou from '../components/slides/ThankYou.vue'
 
 export const ACTS: Act[] = [
   { id: 'framing', label: 'Intro', title: 'Why compress anything?' },
@@ -46,7 +46,7 @@ export const SLIDES: SlideDef[] = [
     id: 'title',
     act: 'framing',
     title: 'Compression',
-    subtitle: 'An interactive deck',
+    subtitle: 'An interactive talk',
     component: TitleSlide,
     tag: 'core',
   },
@@ -60,8 +60,8 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'why-care',
     act: 'framing',
-    title: 'Why Bother?',
-    subtitle: 'Compression is ridiculously effective',
+    title: 'Why Bother',
+    subtitle: 'The numbers behind an ordinary photograph',
     component: WhyCare,
     tag: 'core',
     controls: ['image', 'quality'],
@@ -70,7 +70,7 @@ export const SLIDES: SlideDef[] = [
     id: 'how-it-works',
     act: 'framing',
     title: 'How does it Work?',
-    subtitle: 'Key themes this deck explores',
+    subtitle: 'A map of what the talk will cover',
     component: HowItWorks,
     tag: 'core',
   },
@@ -168,7 +168,7 @@ export const SLIDES: SlideDef[] = [
     id: 'basis-64',
     act: 'fourier',
     title: 'DCT',
-    subtitle: 'The discrete cosine transform',
+    subtitle: 'The Discrete Cosine Transform',
     component: Basis64,
     tag: 'core',
     // Quality matters here now: it decides how many patterns survive the middle act.
@@ -205,67 +205,52 @@ export const SLIDES: SlideDef[] = [
     controls: ['image', 'quality', 'subsampling'],
   },
   {
-    id: 'wider-audio',
+    id: 'many-techniques',
     act: 'conclusions',
-    title: 'Sound',
-    subtitle: 'The same skeleton, a different sense',
-    component: PointsSlide,
+    title: 'So Many Techniques',
+    subtitle: 'But only two kinds',
+    component: BulletSlide,
     tag: 'core',
-    fragments: 4,
-  },
-  {
-    id: 'wider-general',
-    act: 'conclusions',
-    title: 'Everything Else',
-    subtitle: 'Lossless data, with no perception to exploit',
-    component: PointsSlide,
-    tag: 'core',
-    fragments: 4,
-  },
-  {
-    id: 'modern',
-    act: 'conclusions',
-    title: 'After JPEG',
-    subtitle: 'Better parts, same pipeline',
-    component: PointsSlide,
-    tag: 'optional',
-    fragments: 4,
-  },
-  {
-    id: 'brittle-vs-robust',
-    act: 'conclusions',
-    title: 'Brittle and Robust',
-    subtitle: 'Why some schemes only work sometimes',
-    component: BrittleVsRobust,
-    tag: 'core',
-    fragments: 2,
-  },
-  {
-    id: 'lossiness-subjective',
-    act: 'conclusions',
-    title: 'Lossy Is About People',
-    subtitle: 'Every codec contains a model of you',
-    component: PointsSlide,
-    tag: 'core',
-    fragments: 4,
   },
   {
     id: 'reframing',
     act: 'conclusions',
     title: 'Reframing',
-    subtitle: 'What actually did the work',
+    subtitle: 'Formats matter',
     component: Reframing,
     tag: 'core',
-    fragments: 2,
+  },
+  {
+    id: 'tradeoffs',
+    act: 'conclusions',
+    title: 'Different Tradeoffs',
+    subtitle: '',
+    component: BulletSlide,
+    tag: 'core',
+  },
+  {
+    id: 'entropy-limit',
+    act: 'conclusions',
+    title: 'There\'s a Limit',
+    subtitle: 'How low we can go',
+    component: BulletSlide,
+    tag: 'core',
+  },
+  {
+    id: 'wider',
+    act: 'conclusions',
+    title: 'What We Didn\u2019t Cover',
+    subtitle: '',
+    component: BulletSlide,
+    tag: 'core',
   },
   {
     id: 'end',
     act: 'conclusions',
     title: 'Thank You',
-    subtitle: 'Links, credits and questions',
-    component: PointsSlide,
+    subtitle: 'Questions, and where to go next',
+    component: ThankYou,
     tag: 'core',
-    fragments: 4,
   },
 ]
 
