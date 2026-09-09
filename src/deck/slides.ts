@@ -94,8 +94,8 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'rle-bitmap',
     act: 'codes',
-    title: 'Run-Length Encoding',
-    subtitle: 'Counting runs of the same value',
+    title: 'RLE',
+    subtitle: 'Run-Length Encoding: counting runs of the same value',
     component: RleBitmap,
     tag: 'core',
     // No image or quality control: the artwork belongs to this slide, which is what lets
@@ -239,7 +239,7 @@ export const SLIDES: SlideDef[] = [
   {
     id: 'wider',
     act: 'conclusions',
-    title: 'What We Didn\u2019t Cover',
+    title: 'Not Covered',
     subtitle: '',
     component: BulletSlide,
     tag: 'core',
