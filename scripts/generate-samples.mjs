@@ -377,7 +377,7 @@ const COMMONS = {
   },
 }
 
-const USER_AGENT = 'compression-talk-samples/1.0 (educational slide deck; contact yortus@gmail.com)'
+const USER_AGENT = 'compression-talk-samples/1.0 (educational slide deck; https://github.com/yortus/compression)'
 
 async function downloadCommons(entry, outName) {
   const query = new URLSearchParams({
