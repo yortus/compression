@@ -21,42 +21,27 @@ export const ACT2_PROSE: ProseRegistry = {
   'colour-spaces': {
     learner:
       'A colour is three numbers however you slice it — but you get to choose the three axes. ' +
-      'On the left is the RGB cube: fix blue with the slider and the square shows every colour ' +
-      'you can mix from red and green at that blue level. On the right is the same space in ' +
-      'different coordinates — brightness on the slider, and the square is the two colour-difference ' +
-      'axes Cb and Cr. Slide the RGB blue and the whole square changes character, because every one ' +
-      'of red, green and blue is partly brightness. Slide the YCbCr luma and the square keeps its ' +
-      'colours and only lightens or darkens, because brightness has been lifted onto its own axis. ' +
-      'That is the entire reason to switch axes before compressing: in RGB there is no plane you can ' +
-      'spend, while in YCbCr two of the three axes are pure colour you can afford to store coarsely.',
+      'In RGB every one of red, green and blue is partly brightness, so there is no plane you ' +
+      'can spend. Switch to YCbCr and brightness lifts onto its own axis (Y), leaving two axes ' +
+      'of pure colour (Cb, Cr) you can afford to store coarsely. That reframe is the whole ' +
+      'reason to change coordinates before compressing.',
     more: {
-      title: 'Why colour is two axes plus one',
+      title: 'Older than JPEG',
       blocks: [
         {
-          kind: 'para',
+          kind: 'fact',
           text:
-            'Both squares are 2-D slices of the same 3-D space; the slider is the third axis. ' +
-            'The RGB and YCbCr coordinates hold exactly the same colours — the transform between ' +
-            'them is a fixed, reversible bit of arithmetic — so nothing is added or thrown away by ' +
-            'reframing. What changes is where brightness lives. In RGB it is smeared across all ' +
-            'three axes (roughly 59% green, 30% red, 11% blue); in YCbCr it is Y alone, and Cb and ' +
-            'Cr carry only how far the colour leans blue and how far it leans red.',
+            'YCbCr was not invented for JPEG. It is how colour television stayed watchable on ' +
+            'black-and-white sets: broadcasters sent brightness as the old signal and bolted ' +
+            'colour on the side. JPEG reused the trick decades later.',
         },
         {
-          kind: 'para',
+          kind: 'fact',
+          label: 'Why two colour axes, not three',
           text:
-            'That is also why only two colour axes are needed rather than three. Once brightness ' +
-            'is a fixed weighted mix of red, green and blue, knowing the brightness plus two of the ' +
-            'three colour-differences pins down the third by arithmetic — the green-difference is ' +
-            'redundant. Colour, with brightness taken out, is a two-dimensional thing.',
-        },
-        {
-          kind: 'para',
-          text:
-            'The flat patches in the corners of the YCbCr square are Cb/Cr pairs that would fall ' +
-            'outside the RGB cube at that brightness: there is no real colour there, so the ' +
-            'conversion clamps them to the nearest one. Slide the luma and the coloured region ' +
-            'shifts and changes shape, which is the RGB cube being sliced at a different height.',
+            'Once brightness is a fixed mix of R, G and B, knowing brightness plus two ' +
+            'colour-differences pins down the third by arithmetic. Colour, with brightness ' +
+            'removed, is a two-dimensional thing.',
         },
       ],
     },
@@ -64,73 +49,53 @@ export const ACT2_PROSE: ProseRegistry = {
   'rgb-subsample': {
     learner:
       'The obvious way to spend fewer bytes on colour is to store the colour planes at lower ' +
-      'resolution. So here are red, green and blue, each on its own slider — drag one down and ' +
-      'its plane is averaged into coarser and coarser blocks, then stretched back to full size ' +
-      'for the reconstruction. The trouble shows up straight away: every one of these planes is ' +
-      'partly brightness, so drop red or green far and the picture itself goes blocky, not just ' +
-      'its colour. Blue is the exception you can lean on a little — the eye holds very few ' +
-      'blue-reading cones, so it resolves blue detail poorly and a coarse blue plane is hard to ' +
-      'catch. But there is no plane here you can throw away cheaply, because brightness and ' +
-      'colour are tangled together in all three. That tangle is what the next slide unpicks.',
+      'resolution. But every RGB plane is partly brightness, so drop red or green far and the ' +
+      'picture itself goes blocky, not just its colour. Blue is the one you can lean on a little ' +
+      '— and there is no plane here you can throw away cheaply. That tangle is what the next ' +
+      'slide unpicks.',
     more: {
-      title: 'Why green matters most and blue least',
+      title: 'What your eye actually resolves',
       blocks: [
         {
-          kind: 'para',
+          kind: 'fact',
           text:
-            'The eye judges brightness far more finely than colour, and the three primaries do ' +
-            'not carry brightness equally. Green carries most of it, red a good deal less, and ' +
-            'blue least of all — the standard luma weights put it at roughly 59% green, 30% red ' +
-            'and 11% blue, and those are the very numbers the brightness transform two slides ' +
-            'later is built from. So coarsening the green plane dulls the picture fastest, and ' +
-            'coarsening blue is the least visible. Note this is about sensitivity, not cone ' +
-            'counts: the retina actually holds more red-sensitive cones than green, but the two ' +
-            'together form a brightness response that peaks in the green, which is what the eye ' +
-            'resolves most sharply.',
+            'Only about 2% of your cones sense blue, and none sit at the very centre of your ' +
+            'gaze — so fine blue detail is the cheapest thing to store coarsely, whatever the ' +
+            'brightness.',
         },
         {
-          kind: 'para',
+          kind: 'fact',
+          label: 'Green carries the light',
           text:
-            'Blue is cheap for a second reason too. The retina holds very few of the ' +
-            'blue-sensitive cones — a few per cent, and none at the very centre of vision — so ' +
-            'it resolves fine blue detail poorly whatever the brightness. Even so, no RGB plane ' +
-            'is truly free to spend, because every one of them is part brightness. The real fix ' +
-            'is to split brightness away from colour first, which is exactly what the next ' +
-            'slide does.',
+            'Brightness is roughly 59% green, 30% red, 11% blue — the very weights the YCbCr ' +
+            'transform is built from. Coarsen green and the picture dulls fastest; coarsen blue ' +
+            'and almost nobody notices.',
         },
       ],
     },
   },
   'chroma-subsample': {
     learner:
-      'So store less of them. The luma plane is kept at full resolution and the two chroma planes ' +
-      'are stored at half resolution in each direction, which is where the name 4:2:0 comes from. ' +
-      'Flick between the two views and look for the difference — then use the loupe on an edge ' +
-      'where the colour changes sharply, which is where you will actually find it. This is the ' +
-      'most dependable technique in the whole deck: exactly half the data on every image, every ' +
-      'time, with no measuring and no adapting. It is also the one with the least excuse. It ' +
-      'works purely because the plane holding the detail your eye is good at is the one we kept — ' +
-      'a fact about human retinas, not about images. Do the same thing to Y instead and the ' +
-      'picture falls apart.',
+      'Now that brightness and colour sit on separate axes, spend less on the colour ones. Keep ' +
+      'luma at full resolution and store the two chroma planes at half resolution each way — ' +
+      'that is where the name 4:2:0 comes from. Flick between the two views and use the loupe on ' +
+      'a sharp colour edge, the one place you will find the difference. It is the most ' +
+      'dependable saving in the deck: exactly half the data on every image, no measuring. Do the ' +
+      'same to Y instead and the picture falls apart.',
     more: {
-      title: 'Why the ratio never moves',
+      title: 'The saving that never moves',
       blocks: [
         {
-          kind: 'para',
+          kind: 'fact',
           text:
-            'Subsampling is the one stage whose saving is fixed in advance. 4:2:0 halves both ' +
-            'axes of both chroma planes, so they cost a quarter of their samples and the total ' +
-            'lands at half the data on every image ever — a photograph, a flat graphic, a ' +
-            'gradient. Nothing about the picture is consulted, which is why it is safe to do ' +
-            'first and cheap to reason about.',
+            '4:2:0 is nearly universal: almost every JPEG, MPEG video and streamed frame you ' +
+            'have ever seen halves its colour resolution this way — and you have never noticed. ' +
+            'It works purely because the eye resolves colour far less sharply than brightness.',
         },
         {
-          kind: 'para',
-          text:
-            'It is also the stage that is lossy for a reason about people rather than about ' +
-            'data: the eye resolves far less colour detail than luminance detail, so what goes ' +
-            'here is mostly detail a viewer cannot see. Point it at saturated red text on a blue ' +
-            'background and the model breaks down visibly — which is why 4:4:4 exists.',
+          kind: 'link',
+          href: 'https://en.wikipedia.org/wiki/Chroma_subsampling',
+          label: 'Chroma subsampling, and what 4:4:4 is for',
         },
       ],
     },

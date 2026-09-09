@@ -1,55 +1,61 @@
 import type { ProseRegistry } from './types'
+import { PEOPLE } from './people'
 
 export const ACT0_PROSE: ProseRegistry = {
   title: {
     learner:
-      'This is an interactive deck about how compression actually works, built around JPEG — ' +
-      'because JPEG is the one almost everyone has met and almost nobody has taken apart. Every ' +
-      'slide is live: change the image, move the sliders, and the numbers along the top change ' +
-      'with you. Use the arrow keys, or click any slide in the list on the left.',
+      'An interactive deck about how compression actually works, built around JPEG — the one ' +
+      'almost everyone has met and almost nobody has taken apart. Every slide is live: change ' +
+      'the image, move the sliders, and the numbers move with you.',
   },
   'why-care': {
     learner:
-      'A 512×512 photograph is 786,432 bytes of red, green and blue — three quarters of a ' +
-      'megabyte for a small square image. The version you actually downloaded is a few percent ' +
-      'of that. That ratio is not a detail of the file format; it is the reason the web has ' +
-      'images at all, and the same argument applies with more force to audio and video.',
+      'A 512×512 photograph is 786,432 bytes of red, green and blue. The version you actually ' +
+      'downloaded is a few percent of that — and that ratio is not a detail of the file ' +
+      'format, it is the reason the web has images at all.',
+    more: {
+      title: 'The scale of it',
+      blocks: [
+        {
+          kind: 'fact',
+          text:
+            'Video is around four-fifths of all internet traffic. Without compression a single ' +
+            'streamed film would want a connection thousands of times faster than home ' +
+            'broadband — the argument for still images applies to sound and video with far ' +
+            'more force.',
+        },
+        {
+          kind: 'fact',
+          label: 'Rule of thumb',
+          text:
+            'Raw images run about 3 bytes a pixel. A JPEG at ordinary quality lands nearer a ' +
+            'quarter of a byte — a 10–20× saving before anyone notices a thing.',
+        },
+      ],
+    },
   },
   'summarising': {
     learner:
-      'Before any bits: you have compressed things before. Shortening a document is ' +
-      'compression, and it splits along exactly the line the rest of this talk turns on. ' +
-      'Rewrite an aerodrome forecast in METAR and a pilot reads it back word for word — that is ' +
-      'lossless coding against a codebook both sides learned in advance, which is the same ' +
-      'bargain a Huffman code table strikes, one layer up in meaning instead of in bits. Write a ' +
-      'précis of the Gettysburg Address and you will never get the address back. Step to the last ' +
-      'phase and watch both routes run the expansion: one panel becomes the original, the other ' +
-      'simply stops.',
+      'You have compressed things before. Rewrite a forecast in METAR and a pilot reads it back ' +
+      'word for word — lossless, against a codebook both sides learned in advance. Write a ' +
+      'précis of a speech and you can never get the speech back. One route is reversible, the ' +
+      'other is not, and that split runs through the whole talk.',
     more: {
-      title: 'Why one route is open and the other is not',
+      title: 'Two kinds of shorter',
       blocks: [
         {
-          kind: 'para',
+          kind: 'fact',
           text:
-            'The picker is a diagonal rather than a ladder. Chess notation compresses a game ' +
-            'ninefold and summarises terribly, because in a game record the moves *are* the ' +
-            'message; prose is the other way round and has no agreed shorthand at all. Which ' +
-            'route is open to you is a fact about the domain, not about your cleverness.',
+            'Which route is open is a fact about the domain, not your cleverness. Chess notation ' +
+            'compresses a game ninefold and summarises terribly; prose is the other way round ' +
+            'and has no agreed shorthand at all.',
         },
         {
           kind: 'para',
           text:
-            'A codebook is a primer with a very long amortisation. METAR and the Q-codes are ' +
-            'learned once per reader and then used for a career, which is why their overhead is ' +
-            'counted here but rarely paid twice — the same bargain a shared Huffman table ' +
-            'strikes one layer down, in bits instead of in meaning.',
-        },
-        {
-          kind: 'para',
-          text:
-            'And the asymmetry the slide is really for: it can measure exactly how much smaller ' +
-            'a summary is, and it cannot measure whether the summary is any good. Nothing can, ' +
-            'except a person — which is why every lossy codec ends up containing a model of one.',
+            'A codec can measure exactly how much smaller a summary is. It cannot measure ' +
+            'whether the summary is any good — nothing can, except a person, which is why every ' +
+            'lossy codec ends up containing a model of one.',
         },
       ],
     },
@@ -65,11 +71,24 @@ export const ACT0_PROSE: ProseRegistry = {
   },
   timeline: {
     learner:
-      'Almost none of the ideas in JPEG were invented for JPEG. Fourier had the wave ' +
-      'decomposition in 1822, Shannon defined information in 1948, Huffman found optimal prefix ' +
-      'codes as a graduate student in 1952, and the discrete cosine transform arrived in 1974. ' +
-      'The 1992 standard is mostly an act of assembly — which is worth remembering next time ' +
-      'something looks like it must have been invented all at once.',
+      'Almost none of the ideas in JPEG were invented for JPEG. The 1992 standard is mostly an ' +
+      'act of assembly — worth remembering next time something looks like it was invented all ' +
+      'at once.',
+    more: {
+      title: 'The people behind the pipeline',
+      blocks: [
+        PEOPLE.fourier,
+        PEOPLE.shannon,
+        PEOPLE.huffman,
+        {
+          kind: 'fact',
+          text:
+            'Fourier (1822), Shannon (1948), Huffman (1952) and the discrete cosine transform ' +
+            '(1974) were all in place decades before JPEG shipped. The committee’s real work was ' +
+            'in the assembling.',
+        },
+      ],
+    },
   },
   optimisation: {
     learner:

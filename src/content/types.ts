@@ -15,11 +15,36 @@
 /**
  * One piece of a Learn More panel. Data rather than markup, like the rest of `content/`,
  * so the panel decides how it is set and the words never carry layout with them.
+ *
+ * The panel is meant to be *browsed*, not read like a page — so most of these are visual:
+ * a `person` is a portrait and two lines, a `fact` is a pull-out, an `image` is a figure.
+ * `para` still exists for the rare block that genuinely needs a sentence, but a panel that
+ * is all `para` is the wall of text this set of kinds exists to avoid.
  */
 export type LearnMoreBlock =
   | { kind: 'para'; text: string }
   | { kind: 'list'; items: string[] }
   | { kind: 'link'; href: string; label: string }
+  /** A pull-out fact. `label` overrides the default "Did you know?" eyebrow. */
+  | { kind: 'fact'; text: string; label?: string }
+  /**
+   * A person behind an idea. `portrait` is a filename in public/portraits/ (see its
+   * CREDITS.md); omit it and the panel draws a monogram from the initials instead, so a
+   * person with no freely-licensed photo still gets a card.
+   */
+  | {
+      kind: 'person'
+      name: string
+      /** Life span, e.g. "1916–2001". */
+      life?: string
+      /** One-line role, e.g. "Information theory". */
+      role?: string
+      portrait?: string
+      blurb: string
+      href?: string
+    }
+  /** A figure. `src` is a path under public/ (e.g. "ai-genius.png"), or an absolute URL. */
+  | { kind: 'image'; src: string; alt?: string; caption?: string; credit?: string; href?: string }
 
 export interface LearnMoreEntry {
   /** Panel heading for the detail section. The slide's own title heads the panel. */

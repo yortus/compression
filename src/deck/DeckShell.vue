@@ -46,9 +46,12 @@ const prose = computed(() => proseFor(deck.slide.value.id))
 /**
  * The button is always in the bar, and dims rather than disappears on a slide with nothing
  * behind it — a control that moves between slides is a control the presenter has to look
- * for. Either register can fill a panel: written detail, measured detail, or both.
+ * for. It lights up only when there is something *beyond* the slide to read: written
+ * detail (`more` — a person, a fact, a link) or measured detail the slide has published.
+ * The slide's own `learner` paragraph is not enough on its own; a slide that only restates
+ * itself stays greyed, which is the whole point of curating these.
  */
-const hasLearnMore = computed(() => !!prose.value || learnMore.facts.value.length > 0)
+const hasLearnMore = computed(() => !!prose.value?.more || learnMore.facts.value.length > 0)
 
 // Closed by the slide changing, so the panel can never describe a slide that is no longer
 // on screen — which is also why the nav keys are ignored while it is open.
