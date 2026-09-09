@@ -17,11 +17,9 @@ import type { Block, AllBlocks, ChannelBlocks } from './types'
  *
  * Two rows are priced differently and say so. The first is the literal 24 bits a pixel
  * the deck quotes everywhere else, so the cascade starts from the real number rather than
- * from an idealised one; the second row is that same data entropy-priced, which isolates
- * what plain entropy coding buys before any of the pipeline has run. The last row is the
- * real thing: per-block Huffman over the RLE pairs, the same `estimateEncodedBits` that
- * `jpeg-result` and the benchmark report, so the finale ends on the number the audience
- * has been watching all along.
+ * from an idealised one. The last row is the real thing: per-block Huffman over the RLE
+ * pairs, the same `estimateEncodedBits` that `jpeg-result` and the benchmark report, so
+ * the finale ends on the number the audience has been watching all along.
  *
  * An expectation worth abandoning: the DCT row usually comes out *smaller*, not larger.
  * A rotation cannot destroy information, but order-0 entropy is not preserved by one —
@@ -99,19 +97,11 @@ function overAllChannels(blocks: AllBlocks, measure: (b: Block) => number): numb
  */
 const preQuantCache = new WeakMap<AllBlocks, number[]>()
 
-function preQuantBits(cache: PipelineCache, source: ImageData): number[] {
+function preQuantBits(cache: PipelineCache): number[] {
   const hit = preQuantCache.get(cache.dctBlocks)
   if (hit) return hit
 
-  const rgb = new Uint8Array((source.data.length / 4) * 3)
-  for (let i = 0, w = 0; i < source.data.length; i += 4) {
-    rgb[w++] = source.data[i]
-    rgb[w++] = source.data[i + 1]
-    rgb[w++] = source.data[i + 2]
-  }
-
   const rows = [
-    idealBits(rgb),
     idealBits(roundedInts(cache.ycbcr.y)) +
       idealBits(roundedInts(cache.ycbcr.cb)) +
       idealBits(roundedInts(cache.ycbcr.cr)),
@@ -149,7 +139,7 @@ function rleSymbolBits(blocks: AllBlocks): number {
 }
 
 export function measureStages(cache: PipelineCache, source: ImageData, quality: number): StageRow[] {
-  const [rgbBits, ycbcrBits, subBits, dctBits] = preQuantBits(cache, source)
+  const [ycbcrBits, subBits, dctBits] = preQuantBits(cache)
   const quantBits = allCoefficientBits(cache.quantizedBlocks)
   const rleBits = rleSymbolBits(cache.quantizedBlocks)
   const huffBits = estimateEncodedBits(cache)
@@ -164,13 +154,6 @@ export function measureStages(cache: PipelineCache, source: ImageData, quality: 
       note: 'three bytes a pixel — the number every other slide starts from',
       lossy: false,
       measure: 'fixed',
-    },
-    {
-      stage: 'Entropy floor',
-      bits: rgbBits,
-      note: 'the same pixels, perfectly symbol-coded with no model of the image at all',
-      lossy: false,
-      measure: 'entropy',
     },
     {
       stage: '→ YCbCr',

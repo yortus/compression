@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, computed, watch, onMounted, nextTick } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import { PIPELINE_KEY } from '../../composables/useJpegPipeline'
 import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
 import { compareImages } from '../../engine/compare'
@@ -30,8 +29,6 @@ const compressedBytes = computed(() => {
   const cache = pipeline.cache.value
   return cache ? Math.ceil(estimateEncodedBits(cache) / 8) : 0
 })
-
-const ratio = computed(() => (compressedBytes.value ? rawBytes.value / compressedBytes.value : 0))
 
 const diff = computed(() => {
   const src = pipeline.sourceImageData.value
@@ -77,7 +74,7 @@ onMounted(draw)
       <div class="visual">
         <canvas ref="canvasRef" v-loupe />
         <div class="view">
-          <button :class="{ active: !showOriginal }" @click="showOriginal = false">As received</button>
+          <button :class="{ active: !showOriginal }" @click="showOriginal = false">Compressed</button>
           <button :class="{ active: showOriginal }" @click="showOriginal = true">Original</button>
           <span class="hint">hover to magnify</span>
         </div>
@@ -93,17 +90,6 @@ onMounted(draw)
           <span class="value big accent">{{ (compressedBytes / 1024).toFixed(0) }} KB</span>
           <span class="label">what actually travels — and what you are looking at</span>
         </div>
-
-        <Fragment :index="1">
-          <p class="verdict">
-            <strong :class="{ bad: ratio < 1 }">{{ ratio >= 1
-              ? `${ratio.toFixed(0)}× smaller`
-              : `${(1 / ratio).toFixed(1)}× bigger` }}</strong> — and that is the version on screen.
-            Flip to the original and almost nothing changes; magnify, or drag the quality slider
-            down, and you can find exactly what was thrown away. Multiply that by every image on
-            every page you load today, then again, harder, for audio and video.
-          </p>
-        </Fragment>
       </div>
     </div>
   </SlideLayout>
@@ -179,16 +165,5 @@ onMounted(draw)
 .label {
   font-size: 0.65rem;
   color: var(--text-secondary);
-}
-
-.verdict {
-  font-size: 0.7rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-/* A quality setting that expands the image is a real outcome at the top of the slider. */
-.verdict strong.bad {
-  color: var(--negative);
 }
 </style>

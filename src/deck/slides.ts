@@ -10,11 +10,11 @@ import RgbSubsample from '../components/slides/RgbSubsample.vue'
 import ChromaSubsample from '../components/slides/ChromaSubsample.vue'
 
 import TitleSlide from '../components/slides/TitleSlide.vue'
+import AiGenius from '../components/slides/AiGenius.vue'
 import WhyCare from '../components/slides/WhyCare.vue'
+import HowItWorks from '../components/slides/HowItWorks.vue'
 import Summarising from '../components/slides/Summarising.vue'
-import InfoTheory from '../components/slides/InfoTheory.vue'
 import Timeline from '../components/slides/Timeline.vue'
-import Optimisation from '../components/slides/Optimisation.vue'
 import HuffmanCodes from '../components/slides/HuffmanCodes.vue'
 import Lz77 from '../components/slides/Lz77.vue'
 import WavesIntro from '../components/slides/WavesIntro.vue'
@@ -27,12 +27,12 @@ import Reframing from '../components/slides/Reframing.vue'
 import PointsSlide from '../components/slides/PointsSlide.vue'
 
 export const ACTS: Act[] = [
-  { id: 'framing', label: 'Framing', title: 'Why compress anything?' },
+  { id: 'framing', label: 'Intro', title: 'Why compress anything?' },
   { id: 'codes', label: 'Codes', title: 'Finding the redundancy' },
   { id: 'colour', label: 'Colour', title: 'Reframing colour' },
   { id: 'fourier', label: 'Waves', title: "Fourier's insight" },
   { id: 'jpeg', label: 'JPEG', title: 'Putting it all together' },
-  { id: 'conclusions', label: 'Wider', title: 'Looking wider' },
+  { id: 'conclusions', label: 'Outro', title: 'Looking wider' },
 ]
 
 /**
@@ -49,7 +49,13 @@ export const SLIDES: SlideDef[] = [
     subtitle: 'An interactive talk',
     component: TitleSlide,
     tag: 'core',
-    fragments: 2,
+  },
+  {
+    id: 'ai-genius',
+    act: 'framing',
+    title: 'Too Good To Be True',
+    component: AiGenius,
+    tag: 'core',
   },
   {
     id: 'why-care',
@@ -59,34 +65,22 @@ export const SLIDES: SlideDef[] = [
     component: WhyCare,
     tag: 'core',
     controls: ['image', 'quality'],
-    fragments: 2,
   },
   {
-    id: 'info-theory',
+    id: 'how-it-works',
     act: 'framing',
-    title: 'The Floor',
-    subtitle: 'Shannon, 1948 — entropy as a hard limit',
-    component: InfoTheory,
+    title: 'How does it Work?',
+    subtitle: 'A map of what the talk will cover',
+    component: HowItWorks,
     tag: 'core',
-    fragments: 2,
   },
   {
     id: 'timeline',
     act: 'framing',
-    title: 'Who Worked This Out',
-    subtitle: 'Two centuries of borrowed ideas',
+    title: 'Timeline',
+    subtitle: 'Two centuries of ideas',
     component: Timeline,
-    tag: 'optional',
-    fragments: 2,
-  },
-  {
-    id: 'optimisation',
-    act: 'framing',
-    title: 'Compression as Optimisation',
-    subtitle: 'Smaller, faster, truer — pick two',
-    component: Optimisation,
     tag: 'core',
-    fragments: 2,
   },
   {
     id: 'summarising',

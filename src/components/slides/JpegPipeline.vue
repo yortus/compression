@@ -7,6 +7,7 @@ import { formatBytes } from '../../stats/types'
 import { measureStages } from '../../engine/jpeg/stages'
 import { estimateEncodedBits } from '../../engine/jpeg/pipeline'
 import { compareImages } from '../../engine/compare'
+import { ratioVerdict } from '../../rendering/stamp'
 
 /**
  * The whole chain, one row per stage, measured on the image currently loaded.
@@ -58,14 +59,14 @@ useStat('jpeg-pipeline', () => {
 
 const finalRatio = computed(() => (finalBits.value > 0 ? rawBits.value / finalBits.value : 0))
 
+/** Same wording as the canvas stamps on the exploration slides, in an HTML badge. */
+const verdict = computed(() => ratioVerdict(finalRatio.value))
+
 function verdictOf(delta: number) {
   if (delta < -0.01) return 'saves'
   if (delta > 0.01) return 'costs'
   return 'flat'
 }
-
-const lossySteps = computed(() => stages.value?.filter(r => r.lossy) ?? [])
-const transformSteps = computed(() => stages.value?.length ?? 0)
 </script>
 
 <template>
@@ -96,21 +97,11 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
               <template v-else-if="verdictOf(s.delta) === 'flat'">no change</template>
               <template v-else>{{ s.delta > 0 ? '+' : '' }}{{ (s.delta * 100).toFixed(0) }}%</template>
             </span>
-
-            <!-- The tag leads, so it survives the note being clipped on a narrow screen. -->
-            <span class="note">
-              <span v-if="s.measure !== 'entropy'" class="measure">{{ s.measure === 'fixed' ? 'fixed width' : 'real codes' }}</span>
-              {{ s.note }}
-            </span>
           </div>
         </div>
 
         <div class="total">
-          <span class="big">{{ finalRatio.toFixed(1) }}:1</span>
-          <span class="detail">
-            {{ formatBytes(rawBits) }} down to {{ formatBytes(finalBits) }} —
-            and only {{ lossySteps.length }} of those {{ transformSteps }} steps threw anything away.
-          </span>
+          <span class="badge" :class="verdict.better ? 'better' : 'worse'">{{ verdict.text }}</span>
         </div>
       </template>
     </div>
@@ -121,7 +112,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 .pipe {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 1.4rem;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -129,7 +120,7 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 }
 
 .loading {
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   font-style: italic;
   text-align: center;
@@ -138,17 +129,17 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 0.18rem;
+  gap: 0.4rem;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 9.5rem minmax(0, 1fr) 4rem 3.4rem minmax(0, 1.15fr);
+  grid-template-columns: 13rem minmax(0, 1fr) 6rem 5rem;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.62rem;
-  padding: 0.12rem 0.3rem;
-  border-radius: 4px;
+  gap: 0.9rem;
+  font-size: 0.95rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
 }
 
 .row.final {
@@ -163,19 +154,19 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 }
 
 .lossy-tag {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--warning);
   border: 1px solid var(--warning);
   border-radius: 3px;
-  padding: 0 0.15rem;
-  margin-left: 0.25rem;
+  padding: 0 0.2rem;
+  margin-left: 0.35rem;
   vertical-align: middle;
 }
 
 .track {
-  height: 0.75rem;
+  height: 1.15rem;
   background: var(--bg-elevated);
   border-radius: 3px;
   overflow: hidden;
@@ -206,40 +197,24 @@ const transformSteps = computed(() => stages.value?.length ?? 0)
 .delta.costs { color: var(--warning); }
 .delta.flat { color: var(--text-secondary); }
 
-.note {
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.measure {
-  font-style: italic;
-  opacity: 0.75;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0 0.2rem;
-  margin-right: 0.3rem;
-}
-
 .total {
   display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
+  align-items: center;
   justify-content: center;
-  padding-top: 0.2rem;
+  padding-top: 0.4rem;
 }
 
-.big {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--positive);
+.badge {
+  font-size: 2.4rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 1.1rem;
+  border: 3px solid;
+  border-radius: 7px;
   font-variant-numeric: tabular-nums;
 }
 
-.detail {
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-}
+.badge.better { color: var(--positive); border-color: var(--positive); }
+.badge.worse { color: var(--warning); border-color: var(--warning); }
 </style>

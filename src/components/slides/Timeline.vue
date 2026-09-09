@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import SlideLayout from '../../deck/SlideLayout.vue'
-import Fragment from '../../deck/Fragment.vue'
 import { TIMELINE } from '../../content/timeline'
 
 /**
@@ -36,14 +35,6 @@ const entries = computed(() =>
           <span class="what">{{ e.what }}</span>
         </li>
       </ol>
-
-      <Fragment :index="1">
-        <p class="verdict">
-          The oldest idea in JPEG is <strong>170 years older</strong> than the standard, and none of
-          the four load-bearing ones were invented for it. The 1992 spec is largely an act of
-          assembly — which is what most engineering turns out to be, close up.
-        </p>
-      </Fragment>
     </div>
   </SlideLayout>
 </template>
@@ -142,13 +133,5 @@ const entries = computed(() =>
   letter-spacing: 0.04em;
   color: var(--text-secondary);
   opacity: 0.7;
-}
-
-.verdict {
-  font-size: 0.72rem;
-  line-height: 1.5;
-  text-align: center;
-  max-width: 46rem;
-  color: var(--text-secondary);
 }
 </style>
